@@ -36,7 +36,16 @@ func wdf(p string, d fs.DirEntry, err error) error {
 
 	// if jpg/png/etc log in covers...
 	// if mp4, parse tags and do the work
-	LoadALACTags(fullpath)
+	tags, err := LoadALACTags(fullpath)
+	if err != nil {
+		log.Println(err.Error())
+		return err
+	}
+	err = SaveALACTags(fullpath, tags)
+	if err != nil {
+		log.Println(err.Error())
+		return err
+	}
 	return nil
 }
 
