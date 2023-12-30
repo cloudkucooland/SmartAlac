@@ -5,18 +5,13 @@ import (
 	"log"
 	"os"
 	"path"
+	"strings"
+
+	"github.com/Sorrow446/go-mp4tag"
 )
 
-var rename map[string]string
-var covers map[string]string
 var base string
 
-func init() {
-	rename = make(map[string]string)
-	covers = make(map[string]string)
-}
-
-// phase 1, walk and build list -- OK to query MB at this point, even to update
 // main entry point
 func WalkTree(d string) error {
 	base = d
@@ -28,33 +23,43 @@ func WalkTree(d string) error {
 // https://pkg.go.dev/io/fs#WalkDirFunc
 func wdf(p string, d fs.DirEntry, err error) error {
 	if d.IsDir() {
-		// log.Printf("%+v\n", d)
+		return nil
+	}
+
+	// if jpg/png/etc log in covers...
+	if !strings.HasSuffix(p, ".m4a") {
+		log.Printf("skipping non-m4a file: %s\n", p)
 		return nil
 	}
 
 	fullpath := path.Join(base, p)
-
-	// if jpg/png/etc log in covers...
-	// if mp4, parse tags and do the work
-	tags, err := LoadALACTags(fullpath)
+	log.Println(fullpath)
+	mp4, err := mp4tag.Open(fullpath)
 	if err != nil {
 		log.Println(err.Error())
 		return err
 	}
-	err = SaveALACTags(fullpath, tags)
+	tags, err := mp4.Read()
 	if err != nil {
 		log.Println(err.Error())
 		return err
 	}
-	return nil
-}
 
-// phase 2 move files if needed.
-// run rename at the end of the process to move files to their new places
-func Rename() error {
-	for k, v := range rename {
-		log.Println(k, v)
-		// rename k to v
+	// if already tagged with MBIDs
+	if tid, ok := tags.Custom["MusicBrainz Release Track Id"]; !ok || tid == "" {
+		log.Printf("not yet tagged with MBIDs, skiipping (for now): %s\n", p)
+		return nil
 	}
+
+	newtags, changed, err := updateFromMB(tags)
+	if changed {
+		/* if err := mp4.Write(newtags, []string{}); err != nil {
+			log.Println(err.Error())
+			return err
+		} */
+		log.Printf("Would have saved if it were enabled: %s\n", newtags.Title)
+		// rename the file if needed
+	}
+
 	return nil
 }
