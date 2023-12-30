@@ -28,20 +28,16 @@ func main() {
 				// Value:   "/home/data/alac",
 				// Value:   "/home/data/alac/xx, The",
 				Value:   "/home/data/alac/Material Issue/What Girls Want [1992,CD,US,Mercury Records,CDP 685]/",
+				// Value:   "/home/data/alac/Cure, The",
 				Usage:   "root directory for ALAC files",
 			},
 		},
         Action: func(cCtx *cli.Context) error {
             dir:= cCtx.String("dir")
-            err := sa.WalkTree(dir)
-            if err != nil {
+            if err := sa.WalkTree(dir); err != nil {
                 log.Panic(err)
             }
-            err = sa.Rename()
-            if err != nil {
-                log.Panic(err)
-            }
-            return err
+            return nil
 		},
 	}
 
