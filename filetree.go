@@ -11,6 +11,11 @@ import (
 )
 
 var base string
+var dryrun bool
+
+func Dryrun(b bool) {
+	dryrun = b
+}
 
 // main entry point
 func WalkTree(d string) error {
@@ -53,12 +58,15 @@ func wdf(p string, d fs.DirEntry, err error) error {
 
 	newtags, changed, err := updateFromMB(tags)
 	if changed {
-		/* if err := mp4.Write(newtags, []string{}); err != nil {
-			log.Println(err.Error())
-			return err
-		} */
-		log.Printf("Would have saved if it were enabled: %s\n", newtags.Title)
-		// rename the file if needed
+		if !dryrun {
+			if err := mp4.Write(newtags, []string{}); err != nil {
+				log.Println(err.Error())
+				return err
+			}
+			// rename the file if needed
+		} else {
+			log.Printf("Would have saved if not in dry-run mode: %s\n", newtags.Title)
+		}
 	}
 
 	return nil

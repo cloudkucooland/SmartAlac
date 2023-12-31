@@ -25,19 +25,23 @@ func main() {
 			&cli.StringFlag{
 				Name:    "dir",
 				Aliases: []string{"d"},
-				// Value:   "/home/data/alac",
-				// Value:   "/home/data/alac/xx, The",
-				Value:   "/home/data/alac/Material Issue/What Girls Want [1992,CD,US,Mercury Records,CDP 685]/",
-				// Value:   "/home/data/alac/Cure, The",
+				Value:   "/home/data/alac",
 				Usage:   "root directory for ALAC files",
 			},
+			&cli.BoolFlag{
+				Name:    "dryrun",
+				Aliases: []string{"n"},
+				Usage:   "actually save the files",
+			},
 		},
-        Action: func(cCtx *cli.Context) error {
-            dir:= cCtx.String("dir")
-            if err := sa.WalkTree(dir); err != nil {
-                log.Panic(err)
-            }
-            return nil
+		Action: func(cCtx *cli.Context) error {
+			sa.Dryrun(cCtx.Bool("dryrun"))
+
+			dir := cCtx.String("dir")
+			if err := sa.WalkTree(dir); err != nil {
+				log.Panic(err)
+			}
+			return nil
 		},
 	}
 
