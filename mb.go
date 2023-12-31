@@ -35,7 +35,7 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	}
 
 	out.Custom = make(map[string]string)
-	copyCustoms := []string{"KEY", "MOOD", "URL_LYRICS_SITE", "VINYLDIGITIZER", "URL_DISCOGS_ARTIST_SITE"}
+	copyCustoms := []string{"KEY", "MOOD", "URL_LYRICS_SITE", "VINYLDIGITIZER", "URL_DISCOGS_ARTIST_SITE", "DIGITIZE_DATE", "DIGITIZE_INFO", "MusicBrainz Disc Id"}
 	for _, v := range copyCustoms {
 		if _, ok := in.Custom[v]; ok {
 			out.Custom[v] = in.Custom[v]
@@ -57,7 +57,8 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	release, ok := releases[releaseid]
 	if !ok {
 		var err error
-		release, err = client.LookupRelease(gomusicbrainz.MBID(releaseid), "artist-credits", "recordings", "release-groups", "media", "isrcs", "release-rels", "release-group-rels", "url-rels", "labels")
+		release, err = client.LookupRelease(gomusicbrainz.MBID(releaseid), "artist-credits", "recordings", "release-groups", "media", "isrcs", "release-rels", "release-group-rels", "url-rels", "labels", "artists", "work-rels")
+
 		if err != nil {
 			log.Println(err.Error())
 			return in, false, err
@@ -90,7 +91,8 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	// out.Copyright:
 
 	out.CustomGenre = in.CustomGenre
-	// out.Date:
+	out.Date = formatDate(release.Date)
+
 	// out.Description:
 	// out.Director:
 	// out.Genre:0
@@ -101,29 +103,64 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	out.TrackNumber = in.TrackNumber
 
 	out.Custom["ARTISTS"] = fmtArtistList(release.ArtistCredit.NameCredits)
+	if release.Asin != "" {
+		out.Custom["ASIN"] = release.Asin
+	}
 	out.Custom["BARCODE"] = release.Barcode
 	out.Custom["CATALOGNUMBER"] = fmtCatalogNumber(release.LabelInfos)
-	out.Custom["Country"] = release.CountryCode // need to convert to country name
+	out.Custom["Country"] = resolveCountry(release.CountryCode)
 	out.Custom["LABEL"] = fmtLabel(release.LabelInfos)
 	out.Custom["LANGUAGE"] = release.TextRepresentation.Language
-	out.Custom["MEDIA"] = medium.Format
+	out.Custom["MEDIA"] = mediumFormat(medium.Format)
 	out.Custom["MusicBrainz Album Artist Id"] = joinArtistIDs(release.ArtistCredit.NameCredits)
 	out.Custom["MusicBrainz Album Id"] = releaseid
 	out.Custom["MusicBrainz Album Release Country"] = release.CountryCode
 	out.Custom["MusicBrainz Album Type"] = strings.ToLower(release.ReleaseGroup.Type)
 	out.Custom["MusicBrainz Artist Id"] = joinArtistIDs(track.Recording.ArtistCredit.NameCredits)
-	// out.Custom["MusicBrainz Disc Id"] :YeZdB4dY7lQIC0ZSgkbe2R4HXAs-
 	out.Custom["MusicBrainz Release Group Id"] = string(release.ReleaseGroup.ID)
 	out.Custom["MusicBrainz Release Track Id"] = tid
 	out.Custom["MusicBrainz Track Id"] = tid
-	out.Custom["ORIGINALDATE"] = fmt.Sprintf("%d", release.ReleaseGroup.FirstReleaseDate.Year())
+	out.Custom["ORIGINALDATE"] = formatDate(release.ReleaseGroup.FirstReleaseDate)
 	out.Custom["ORIGINALYEAR"] = fmt.Sprintf("%d", release.ReleaseGroup.FirstReleaseDate.Year())
 	out.Custom["RELEASESTATUS"] = strings.ToLower(release.Status)
 	out.Custom["SCRIPT"] = release.TextRepresentation.Script
 
-	// out.Custom["URL_DISCOGS_RELEASE_SITE"] = release.Relations.Url.RelationAbstract.Target
+	// library doesn't implement work yet -- guess I need to do a PR
+	out.Composer = in.Composer
+	if x, ok := in.Custom["MusicBrainz Work Id"]; ok {
+		out.Custom["MusicBrainz Work Id"] = x
+	}
+	if x, ok := in.Custom["WORK"]; ok {
+		out.Custom["WORK"] = x
+	}
+	if x, ok := in.Custom["LYRICIST"]; ok {
+		out.Custom["LYRICIST"] = x
+	}
+	if x, ok := in.Custom["PRODUCER"]; ok {
+		out.Custom["PRODUCER"] = x
+	}
+	if x, ok := in.Custom["ENGINEER"]; ok {
+		out.Custom["ENGINEER"] = x
+	}
+	if x, ok := in.Custom["MIXER"]; ok {
+		out.Custom["MIXER"] = x
+	}
+	if x, ok := in.Custom["ISRC"]; ok {
+		out.Custom["ISRC"] = x
+	}
+	if x, ok := in.Custom["REMIXER"]; ok {
+		out.Custom["REMIXER"] = x
+	}
+	if x, ok := in.Custom["WRITER"]; ok {
+		out.Custom["WRITER"] = x
+	}
 
-	log.Printf("%# v\n", pretty.Formatter(pretty.Diff(in, &out)))
+	// XXX Process urls
+	if x, ok := in.Custom["URL_DISCOGS_RELEASE_SITE"]; ok {
+		out.Custom["URL_DISCOGS_RELEASE_SITE"] = x
+	}
+
+	showDiffs(in, &out)
 
 	return &out, true, nil
 }
@@ -229,4 +266,29 @@ func fmtLabel(l []gomusicbrainz.LabelInfo) string {
 		s += li.Label.Name
 	}
 	return s
+}
+
+func showDiffs(in, out *mp4tag.MP4Tags) int {
+	d := pretty.Diff(in, out)
+	for _, v := range d {
+		sp := strings.SplitN(v, ":", 2)
+		fmt.Printf("%s\t\t\t%s\n", sp[0], sp[1])
+	}
+	return len(d)
+}
+
+func mediumFormat(f string) string {
+	return strings.Replace(f, "\"", "″", 1)
+}
+
+func formatDate(d gomusicbrainz.BrainzTime) string {
+	switch d.Accuracy {
+	case gomusicbrainz.Year:
+		return d.Format("2006")
+	case gomusicbrainz.Month:
+		return d.Format("2006-01")
+	case gomusicbrainz.Day:
+		return d.Format("2006-01-02")
+	}
+	return d.Format("2006")
 }
