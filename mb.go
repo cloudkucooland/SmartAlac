@@ -3,7 +3,10 @@ package sa
 import (
 	"fmt"
 	"log"
+	"sort"
 	"strings"
+
+	"go.uber.org/ratelimit"
 
 	"github.com/Sorrow446/go-mp4tag"
 	"github.com/kr/pretty"
@@ -16,6 +19,7 @@ import (
 
 var client *gomusicbrainz.WS2Client
 var releases map[string]*gomusicbrainz.Release
+var rl ratelimit.Limiter
 
 func init() {
 	client, _ = gomusicbrainz.NewWS2Client(
@@ -25,6 +29,8 @@ func init() {
 		"http://github.com/cloudkucooland/SmartAlac")
 
 	releases = make(map[string]*gomusicbrainz.Release)
+
+	rl = ratelimit.New(1)
 }
 
 func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
@@ -56,6 +62,7 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 
 	release, ok := releases[releaseid]
 	if !ok {
+		rl.Take()
 		var err error
 		release, err = client.LookupRelease(gomusicbrainz.MBID(releaseid), "artist-credits", "recordings", "release-groups", "media", "isrcs", "release-rels", "release-group-rels", "url-rels", "labels", "artists", "work-rels")
 
@@ -248,22 +255,44 @@ func getTrack(r *gomusicbrainz.Release, trackID gomusicbrainz.MBID) *gomusicbrai
 
 func fmtCatalogNumber(l []gomusicbrainz.LabelInfo) string {
 	var s string
-	for i, li := range l {
-		if i > 0 {
-			s += ", "
+
+	reduce := make(map[string]bool)
+	for _, li := range l {
+		reduce[li.CatalogNumber] = true
+	}
+	m := make([]string, 0)
+	for n := range reduce {
+		m = append(m, n)
+	}
+	sort.Strings(m)
+
+	for _, number := range m {
+		if len(s) > 0 {
+			s += "; "
 		}
-		s += li.CatalogNumber
+		s += number
 	}
 	return s
 }
 
 func fmtLabel(l []gomusicbrainz.LabelInfo) string {
 	var s string
-	for i, li := range l {
-		if i > 0 {
-			s += ", "
+
+	reduce := make(map[string]bool)
+	for _, li := range l {
+		reduce[li.Label.Name] = true
+	}
+	m := make([]string, 0)
+	for n := range reduce {
+		m = append(m, n)
+	}
+	sort.Strings(m)
+
+	for _, name := range m {
+		if len(s) > 0 {
+			s += "; "
 		}
-		s += li.Label.Name
+		s += name
 	}
 	return s
 }
