@@ -17,3 +17,25 @@ Replace my curate.py script with something written in Go that will updated the t
 A tool to help with the final stages of my vinyl rips (encode, tag, move into place)
 
 A tool to help rip CDs (rip, encode, tag, move into place)
+
+## Current state of "curate" tool
+
+Basic proof-of-concept functionality in place. Reading files created with ffmpeg (from flac) works. Writing files works, but munches up the custom tags (UPPERCASE). 
+
+Need to fix mp4tag to allow lowercase/CamelCase tag names in Customs. Because MusicBrainz picard tags CamelCase.
+
+Need to figure out why files tagged with (newer?) Picard lose their Custom Tag key/value matching.
+
+Need to add features to gomusicbrainz to get additional fields (e.g. ISRC and others).
+
+ASIN/Amazon stuff is non-existant and will probably remain so. It never did much for me
+
+Discogs stuff is non-existant and is low priority, except making sure my discogs library is up-to-date.
+
+Getting Apple iTunes artist/album ID (did not exist in batchme) might be a nice feature.
+
+## New TUI tool visioning
+
+I want the ability to match/tag files missing musicbrainz tags (e.g. my vinyl rips) without having to go through Picard first.
+
+I want the ability to encode wav files (vinyl rips) from within the tool.
