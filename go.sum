@@ -1,5 +1,7 @@
 github.com/Sorrow446/go-mp4tag v0.0.0-20231216231332-6bc94dacffd5 h1:Yka5oCbVM9spisIWffLcsBDNzWWcBhV7qH7hpThs7qM=
 github.com/Sorrow446/go-mp4tag v0.0.0-20231216231332-6bc94dacffd5/go.mod h1:ZpEC8+oPtZd6NilA8sMixPzn09ux7CPib2y7CikR3oo=
+github.com/Sorrow446/go-mp4tag v0.0.0-20240101013410-467689a441c1 h1:PoXkRbQd3EnfNQm3iTe4162ZQTvUra7hkyfPSfsvaoA=
+github.com/Sorrow446/go-mp4tag v0.0.0-20240101013410-467689a441c1/go.mod h1:ZpEC8+oPtZd6NilA8sMixPzn09ux7CPib2y7CikR3oo=
 github.com/benbjohnson/clock v1.3.5 h1:VvXlSJBzZpA/zum6Sj74hxwYI2DIxRWuNIoXAzHZz5o=
 github.com/benbjohnson/clock v1.3.5/go.mod h1:J11/hYXuz8f4ySSvYwY0FKfm+ezbsZBKZxNJlLklBHA=
 github.com/cpuguy83/go-md2man/v2 v2.0.3 h1:qMCsGGgs+MAzDFyp9LpAe1Lqy/fY/qCovCm0qnXZOBM=

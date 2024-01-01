@@ -3,7 +3,7 @@ module github.com/cloudkucooland/SmartAlac
 go 1.18
 
 require (
-	github.com/Sorrow446/go-mp4tag v0.0.0-20231216231332-6bc94dacffd5
+	github.com/Sorrow446/go-mp4tag v0.0.0-20240101013410-467689a441c1
 	github.com/kr/pretty v0.3.1
 	github.com/michiwend/gomusicbrainz v0.0.0-20181012083520-6c07e13dd396
 	github.com/urfave/cli/v2 v2.27.1
