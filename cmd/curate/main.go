@@ -33,14 +33,22 @@ func main() {
 				Aliases: []string{"n"},
 				Usage:   "actually save the files",
 			},
+			&cli.BoolFlag{
+				Name:    "debug",
+				Aliases: []string{"V"},
+				Usage:   "verbose info dumps",
+			},
 		},
 		Action: func(cCtx *cli.Context) error {
 			sa.Dryrun(cCtx.Bool("dryrun"))
+			sa.Debug(cCtx.Bool("debug"))
 
 			dir := cCtx.String("dir")
 			if err := sa.WalkTree(dir); err != nil {
 				log.Panic(err)
 			}
+
+			sa.ShowStats()
 			return nil
 		},
 	}

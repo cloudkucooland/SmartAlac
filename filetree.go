@@ -1,6 +1,7 @@
 package sa
 
 import (
+	"fmt"
 	"io/fs"
 	"log"
 	"os"
@@ -8,14 +9,10 @@ import (
 	"strings"
 
 	"github.com/Sorrow446/go-mp4tag"
+	"github.com/kr/pretty"
 )
 
 var base string
-var dryrun bool
-
-func Dryrun(b bool) {
-	dryrun = b
-}
 
 // main entry point
 func WalkTree(d string) error {
@@ -33,7 +30,9 @@ func wdf(p string, d fs.DirEntry, err error) error {
 
 	// if jpg/png/etc log in covers...
 	if !strings.HasSuffix(p, ".m4a") {
-		log.Printf("skipping non-m4a file: %s\n", p)
+		if debug {
+			log.Printf("skipping non-m4a file: %s\n", p)
+		}
 		return nil
 	}
 
@@ -41,26 +40,38 @@ func wdf(p string, d fs.DirEntry, err error) error {
 	log.Println(fullpath)
 	mp4, err := mp4tag.Open(fullpath)
 	if err != nil {
-		log.Println(err.Error())
+		log.Printf("unable to open mp4 file: %s", err.Error())
 		return err
 	}
+	defer mp4.Close()
+
 	tags, err := mp4.Read()
 	if err != nil {
-		log.Println(err.Error())
+		log.Println("unable to read mp4 metadata: %s", err.Error())
 		return err
+	}
+
+	if debug {
+		log.Printf("%# v\n", pretty.Formatter(tags.Custom))
 	}
 
 	// if already tagged with MBIDs
-	if tid, ok := tags.Custom["MusicBrainz Release Track Id"]; !ok || tid == "" {
-		log.Printf("not yet tagged with MBIDs, skiipping (for now): %s\n", p)
+	if tid, ok := tags.Custom["MusicBrainz Album Id"]; !ok || tid == "" {
+		log.Printf("not yet tagged with MBIDs, skipping (will write interface to query mb later): %s\n", p)
 		return nil
 	}
+	if len(tid) != 36 {
+		log.Printf("corrupt MBID [%s]: %s\n", tid, p)
+		return nil
+	}
+	stats.files = stats.files + 1
 
 	newtags, changed, err := updateFromMB(tags)
 	if changed {
+		stats.changes = stats.changes + showDiffs(tags, newtags)
 		if !dryrun {
 			if err := mp4.Write(newtags, []string{}); err != nil {
-				log.Println(err.Error())
+				log.Println("saving : %s", err.Error())
 				return err
 			}
 			// rename the file if needed
@@ -70,4 +81,13 @@ func wdf(p string, d fs.DirEntry, err error) error {
 	}
 
 	return nil
+}
+
+func showDiffs(in, out *mp4tag.MP4Tags) int {
+	d := pretty.Diff(in, out)
+	for _, v := range d {
+		sp := strings.SplitN(v, ":", 2)
+		fmt.Printf("%s\t\t\t%s\n", sp[0], sp[1])
+	}
+	return len(d)
 }
