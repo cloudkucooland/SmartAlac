@@ -56,7 +56,8 @@ func wdf(p string, d fs.DirEntry, err error) error {
 	}
 
 	// if already tagged with MBIDs
-	if tid, ok := tags.Custom["MusicBrainz Album Id"]; !ok || tid == "" {
+	tid, ok := tags.Custom["MusicBrainz Album Id"]
+    if !ok || tid == "" {
 		log.Printf("not yet tagged with MBIDs, skipping (will write interface to query mb later): %s\n", p)
 		return nil
 	}
