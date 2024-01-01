@@ -42,7 +42,7 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	out.Custom = make(map[string]string)
 
 	// Things generated elsewhere, just blindly copy them over for now
-	copyCustoms := []string{"KEY", "MOOD", "URL_LYRICS_SITE", "VINYLDIGITIZER", "URL_DISCOGS_ARTIST_SITE", "DIGITIZE_DATE", "DIGITIZE_INFO", "MusicBrainz Disc Id"}
+	copyCustoms := []string{"KEY", "MOOD", "URL_LYRICS_SITE", "VINYLDIGITIZER", "URL_DISCOGS_ARTIST_SITE", "DIGITIZE_DATE", "DIGITIZE_INFO", "MusicBrainz Disc Id", "initialkey"}
 	for _, v := range copyCustoms {
 		if _, ok := in.Custom[v]; ok {
 			out.Custom[v] = in.Custom[v]
@@ -56,7 +56,7 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	}
 	log.Printf("release ID: %s", releaseid)
 
-	tid, ok := in.Custom["MusicBrainz Track Id"]
+	tid, ok := in.Custom["MusicBrainz Release Track Id"]
 	if !ok {
 		log.Println("no track ID, skipping")
 		return in, false, nil
@@ -102,7 +102,9 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	if aa != asa {
 		out.AlbumArtistSort = asa
 	}
-	out.BPM = in.BPM
+	if in.BPM > 0 {
+		out.BPM = in.BPM
+	}
 	out.DiscNumber = in.DiscNumber
 	out.DiscTotal = getMediumCount(release)
 	// out.Sort:
@@ -144,21 +146,22 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	out.Custom["MusicBrainz Album Artist Id"] = joinArtistIDs(release.ArtistCredit.NameCredits)
 	out.Custom["MusicBrainz Album Id"] = releaseid
 	out.Custom["MusicBrainz Album Release Country"] = release.CountryCode
+	out.Custom["MusicBrainz Album Status"] = strings.ToLower(release.Status)
 	out.Custom["MusicBrainz Album Type"] = strings.ToLower(release.ReleaseGroup.Type)
 	out.Custom["MusicBrainz Artist Id"] = joinArtistIDs(track.Recording.ArtistCredit.NameCredits)
 	out.Custom["MusicBrainz Release Group Id"] = string(release.ReleaseGroup.ID)
 	out.Custom["MusicBrainz Release Track Id"] = tid
-	out.Custom["MusicBrainz Track Id"] = tid
+	// out.Custom["MusicBrainz Track Id"] = tid // this is a different value
 	out.Custom["ORIGINALDATE"] = formatDate(release.ReleaseGroup.FirstReleaseDate)
 	out.Custom["ORIGINALYEAR"] = fmt.Sprintf("%d", release.ReleaseGroup.FirstReleaseDate.Year())
-	out.Custom["RELEASESTATUS"] = strings.ToLower(release.Status)
+	// out.Custom["RELEASESTATUS"] = strings.ToLower(release.Status)
 	out.Custom["SCRIPT"] = release.TextRepresentation.Script
 
-	// XXX library doesn't implement these yet -- guess I need to do a PR
+	// XXX gomusicbrainz doesn't implement these yet -- guess I need to do a PR
 	out.Composer = in.Composer
 
-	// XXX library doesn't implement these yet -- guess I need to do a PR
-	copyCustomsNotImpl := []string{"MusicBrainz Work Id", "WORK", "LYRICIST", "PRODUCER", "ENGINEER", "MIXER", "ISRC", "REMIXER", "WRITER"}
+	// XXX gomusicbrainz doesn't implement these yet -- guess I need to do a PR
+	copyCustomsNotImpl := []string{"MusicBrainz Work Id", "WORK", "LYRICIST", "PRODUCER", "ENGINEER", "MIXER", "ISRC", "REMIXER", "WRITER", "ARRANGER"}
 	for _, v := range copyCustomsNotImpl {
 		if _, ok := in.Custom[v]; ok {
 			out.Custom[v] = in.Custom[v]
