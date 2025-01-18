@@ -102,9 +102,7 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	if aa != asa {
 		out.AlbumArtistSort = asa
 	}
-	if in.BPM > 0 {
-		out.BPM = in.BPM
-	}
+	out.BPM = in.BPM
 	out.DiscNumber = in.DiscNumber
 	out.DiscTotal = getMediumCount(release)
 	// out.Sort:
@@ -151,7 +149,7 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	out.Custom["MusicBrainz Artist Id"] = joinArtistIDs(track.Recording.ArtistCredit.NameCredits)
 	out.Custom["MusicBrainz Release Group Id"] = string(release.ReleaseGroup.ID)
 	out.Custom["MusicBrainz Release Track Id"] = tid
-	// out.Custom["MusicBrainz Track Id"] = tid // this is a different value
+	out.Custom["MusicBrainz Track Id"] = string(getTrackRecordingID(release, gomusicbrainz.MBID(tid)))
 	out.Custom["ORIGINALDATE"] = formatDate(release.ReleaseGroup.FirstReleaseDate)
 	out.Custom["ORIGINALYEAR"] = fmt.Sprintf("%d", release.ReleaseGroup.FirstReleaseDate.Year())
 	// out.Custom["RELEASESTATUS"] = strings.ToLower(release.Status)

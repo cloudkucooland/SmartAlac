@@ -44,6 +44,7 @@ func wdf(p string, d fs.DirEntry, err error) error {
 		return err
 	}
 	defer mp4.Close()
+    mp4.UpperCustom(false)
 
 	tags, err := mp4.Read()
 	if err != nil {
@@ -58,7 +59,7 @@ func wdf(p string, d fs.DirEntry, err error) error {
 	// if already tagged with MBIDs
 	tid, ok := tags.Custom["MusicBrainz Album Id"]
 	if !ok || tid == "" {
-		log.Printf("not yet tagged with MBIDs, skipping (will write interface to query mb later): %s\n", p)
+		log.Printf("not tagged with MBIDs, skipping (will write interface to query mb later): %s\n", p)
 		return nil
 	}
 	if len(tid) != 36 {
@@ -84,6 +85,7 @@ func wdf(p string, d fs.DirEntry, err error) error {
 	return nil
 }
 
+// it is an anti-pattern to overload a function in this way: one function to show, another to count please
 func showDiffs(in, out *mp4tag.MP4Tags) int {
 	d := pretty.Diff(in, out)
 	for _, v := range d {

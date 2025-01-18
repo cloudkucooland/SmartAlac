@@ -90,6 +90,14 @@ func getTrack(r *gomusicbrainz.Release, trackID gomusicbrainz.MBID) *gomusicbrai
 	return nil
 }
 
+func getTrackRecordingID(r *gomusicbrainz.Release, trackID gomusicbrainz.MBID) gomusicbrainz.MBID {
+    t := getTrack(r, trackID)
+    if t == nil {
+        return ""
+    }
+    return t.Recording.ID
+}
+
 func fmtCatalogNumber(l []gomusicbrainz.LabelInfo) string {
 	// fast-path for the normal case
 	if len(l) == 1 {

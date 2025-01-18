@@ -25,7 +25,7 @@ func main() {
 			&cli.StringFlag{
 				Name:    "dir",
 				Aliases: []string{"d"},
-				Value:   "/home/data/alac",
+				Value:   "/home/music/alac",
 				Usage:   "root directory for ALAC files",
 			},
 			&cli.BoolFlag{
