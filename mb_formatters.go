@@ -91,11 +91,11 @@ func getTrack(r *gomusicbrainz.Release, trackID gomusicbrainz.MBID) *gomusicbrai
 }
 
 func getTrackRecordingID(r *gomusicbrainz.Release, trackID gomusicbrainz.MBID) gomusicbrainz.MBID {
-    t := getTrack(r, trackID)
-    if t == nil {
-        return ""
-    }
-    return t.Recording.ID
+	t := getTrack(r, trackID)
+	if t == nil {
+		return ""
+	}
+	return t.Recording.ID
 }
 
 func fmtCatalogNumber(l []gomusicbrainz.LabelInfo) string {
@@ -127,7 +127,7 @@ func fmtCatalogNumber(l []gomusicbrainz.LabelInfo) string {
 
 func fmtLabel(l []gomusicbrainz.LabelInfo) string {
 	// fast-path for the normal case
-	if len(l) == 1 {
+	if len(l) == 1 && l[0].Label != nil && l[0].Label.Name != "" {
 		return l[0].Label.Name
 	}
 
@@ -135,7 +135,9 @@ func fmtLabel(l []gomusicbrainz.LabelInfo) string {
 
 	reduce := make(map[string]bool)
 	for _, li := range l {
-		reduce[li.Label.Name] = true
+        if li.Label != nil && li.Label.Name != "" {
+		    reduce[li.Label.Name] = true
+        }
 	}
 	m := make([]string, 0)
 	for n := range reduce {

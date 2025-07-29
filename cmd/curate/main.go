@@ -31,7 +31,7 @@ func main() {
 			&cli.BoolFlag{
 				Name:    "dryrun",
 				Aliases: []string{"n"},
-				Usage:   "actually save the files",
+				Usage:   "skip saving the files",
 			},
 			&cli.BoolFlag{
 				Name:    "debug",

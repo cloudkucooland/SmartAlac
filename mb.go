@@ -54,7 +54,9 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 		log.Println("no release ID, skipping")
 		return in, false, nil
 	}
-	log.Printf("release ID: %s", releaseid)
+	if debug {
+		log.Printf("release ID: %s", releaseid)
+	}
 
 	tid, ok := in.Custom["MusicBrainz Release Track Id"]
 	if !ok {
@@ -114,7 +116,7 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	medium := getMedium(release, in.DiscNumber)
 	track := getTrack(release, gomusicbrainz.MBID(tid))
 	if track == nil {
-		return in, false, fmt.Errorf("no matching track in MB data")
+		return in, false, nil // fmt.Errorf("no matching track in MB data")
 	}
 	out.Artist = fmtArtistCredit(track.Recording.ArtistCredit.NameCredits)
 	out.Comment = in.Comment
@@ -152,14 +154,13 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	out.Custom["MusicBrainz Track Id"] = string(getTrackRecordingID(release, gomusicbrainz.MBID(tid)))
 	out.Custom["ORIGINALDATE"] = formatDate(release.ReleaseGroup.FirstReleaseDate)
 	out.Custom["ORIGINALYEAR"] = fmt.Sprintf("%d", release.ReleaseGroup.FirstReleaseDate.Year())
-	// out.Custom["RELEASESTATUS"] = strings.ToLower(release.Status)
 	out.Custom["SCRIPT"] = release.TextRepresentation.Script
 
 	// XXX gomusicbrainz doesn't implement these yet -- guess I need to do a PR
 	out.Composer = in.Composer
 
 	// XXX gomusicbrainz doesn't implement these yet -- guess I need to do a PR
-	copyCustomsNotImpl := []string{"MusicBrainz Work Id", "WORK", "LYRICIST", "PRODUCER", "ENGINEER", "MIXER", "ISRC", "REMIXER", "WRITER", "ARRANGER"}
+	copyCustomsNotImpl := []string{"MusicBrainz Work Id", "WORK", "LYRICIST", "PRODUCER", "ENGINEER", "MIXER", "ISRC", "REMIXER", "WRITER", "ARRANGER", "DISCSUBTITLE"}
 	for _, v := range copyCustomsNotImpl {
 		if _, ok := in.Custom[v]; ok {
 			out.Custom[v] = in.Custom[v]
