@@ -78,11 +78,11 @@ func joinArtistIDs(a []gomusicbrainz.NameCredit) string {
 	return s
 }
 
-func getTrack(r *gomusicbrainz.Release, trackID gomusicbrainz.MBID) *gomusicbrainz.Track {
+func getRecording(r *gomusicbrainz.Release, recordingID gomusicbrainz.MBID) *gomusicbrainz.Recording {
 	for _, m := range r.Mediums {
 		for _, t := range m.Tracks {
-			if t.ID == trackID {
-				return t
+			if t.Recording.ID == recordingID {
+				return &t.Recording
 			}
 		}
 	}
@@ -90,13 +90,13 @@ func getTrack(r *gomusicbrainz.Release, trackID gomusicbrainz.MBID) *gomusicbrai
 	return nil
 }
 
-func getTrackRecordingID(r *gomusicbrainz.Release, trackID gomusicbrainz.MBID) gomusicbrainz.MBID {
+/* func getTrackRecordingID(r *gomusicbrainz.Release, trackID gomusicbrainz.MBID) gomusicbrainz.MBID {
 	t := getTrack(r, trackID)
 	if t == nil {
 		return ""
 	}
 	return t.Recording.ID
-}
+} */
 
 func fmtCatalogNumber(l []gomusicbrainz.LabelInfo) string {
 	// fast-path for the normal case
@@ -135,9 +135,9 @@ func fmtLabel(l []gomusicbrainz.LabelInfo) string {
 
 	reduce := make(map[string]bool)
 	for _, li := range l {
-        if li.Label != nil && li.Label.Name != "" {
-		    reduce[li.Label.Name] = true
-        }
+		if li.Label != nil && li.Label.Name != "" {
+			reduce[li.Label.Name] = true
+		}
 	}
 	m := make([]string, 0)
 	for n := range reduce {

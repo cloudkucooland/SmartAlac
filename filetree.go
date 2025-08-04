@@ -29,11 +29,7 @@ func WalkTree(d string) error {
 
 // https://pkg.go.dev/io/fs#WalkDirFunc
 func wdf(p string, d fs.DirEntry, err error) error {
-	if d == nil {
-		return nil
-	}
-
-	if d.IsDir() {
+	if d == nil || d.IsDir() {
 		return nil
 	}
 
@@ -41,13 +37,6 @@ func wdf(p string, d fs.DirEntry, err error) error {
 	if !strings.HasSuffix(p, ".m4a") || strings.HasPrefix(p, "._") {
 		if debug {
 			log.Printf("skipping non-m4a file: %s\n", p)
-		}
-		return nil
-	}
-
-	if strings.Contains(p, "/._") {
-		if debug {
-			log.Printf("skipping appledouble file: %s\n", p)
 		}
 		return nil
 	}
@@ -112,7 +101,7 @@ func showDiffs(in, out *mp4tag.MP4Tags) int {
 	d := pretty.Diff(in, out)
 	for _, v := range d {
 		sp := strings.SplitN(v, ":", 2)
-		fmt.Printf("%s\t\t\t%s\n", sp[0], sp[1])
+		fmt.Printf("%s\t%s\n", sp[0], sp[1])
 	}
 	return len(d)
 }

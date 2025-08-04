@@ -33,6 +33,10 @@ func init() {
 }
 
 func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
+	if debug {
+		log.Printf("%# v\n", pretty.Formatter(in))
+	}
+
 	out := mp4tag.MP4Tags{
 		ItunesAdvisory: 0,
 		ItunesAlbumID:  -1,
@@ -42,7 +46,7 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	out.Custom = make(map[string]string)
 
 	// Things generated elsewhere, just blindly copy them over for now
-	copyCustoms := []string{"KEY", "MOOD", "URL_LYRICS_SITE", "VINYLDIGITIZER", "URL_DISCOGS_ARTIST_SITE", "DIGITIZE_DATE", "DIGITIZE_INFO", "MusicBrainz Disc Id", "initialkey"}
+	copyCustoms := []string{"KEY", "MOOD", "URL_LYRICS_SITE", "VINYLDIGITIZER", "URL_DISCOGS_ARTIST_SITE", "DIGITIZE_DATE", "DIGITIZE_INFO", "MusicBrainz Disc Id", "initialkey", "MusicBrainz Release Track Id"}
 	for _, v := range copyCustoms {
 		if _, ok := in.Custom[v]; ok {
 			out.Custom[v] = in.Custom[v]
@@ -58,16 +62,22 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 		log.Printf("release ID: %s", releaseid)
 	}
 
-	tid, ok := in.Custom["MusicBrainz Release Track Id"]
+	recordingID, ok := in.Custom["MusicBrainz Track Id"] // I know, I know
 	if !ok {
-		log.Println("no track ID, skipping")
+		log.Println("no recordingID, skipping")
 		return in, false, nil
 	}
+
 	if in.TrackNumber < 1 {
 		log.Println("no track number, skipping")
 		return in, false, nil
 	}
+	if in.DiscNumber < 1 {
+		log.Println("no disc number, skipping")
+		return in, false, nil
+	}
 
+	// check the cache
 	release, ok := releases[releaseid]
 	if !ok {
 		if v, ok := stats.badqueries[releaseid]; ok && v {
@@ -114,11 +124,9 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 
 	// per track items
 	medium := getMedium(release, in.DiscNumber)
-	track := getTrack(release, gomusicbrainz.MBID(tid))
-	if track == nil {
-		return in, false, nil // fmt.Errorf("no matching track in MB data")
-	}
-	out.Artist = fmtArtistCredit(track.Recording.ArtistCredit.NameCredits)
+	recording := getRecording(release, gomusicbrainz.MBID(recordingID))
+
+	out.Artist = fmtArtistCredit(recording.ArtistCredit.NameCredits)
 	out.Comment = in.Comment
 	// out.Conductor:
 	// out.Copyright:
@@ -129,11 +137,11 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	// out.Genre:
 	out.Lyrics = in.Lyrics
 	// out.Narrator:
-	out.Title = track.Recording.Title
+	out.Title = recording.Title
 	// out.TitleSort:
 	out.TrackNumber = in.TrackNumber
 
-	out.Custom["ARTISTS"] = fmtArtistList(track.Recording.ArtistCredit.NameCredits)
+	out.Custom["ARTISTS"] = fmtArtistList(recording.ArtistCredit.NameCredits)
 	if release.Asin != "" {
 		out.Custom["ASIN"] = release.Asin
 	}
@@ -148,10 +156,9 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	out.Custom["MusicBrainz Album Release Country"] = release.CountryCode
 	out.Custom["MusicBrainz Album Status"] = strings.ToLower(release.Status)
 	out.Custom["MusicBrainz Album Type"] = strings.ToLower(release.ReleaseGroup.Type)
-	out.Custom["MusicBrainz Artist Id"] = joinArtistIDs(track.Recording.ArtistCredit.NameCredits)
+	out.Custom["MusicBrainz Artist Id"] = joinArtistIDs(recording.ArtistCredit.NameCredits)
 	out.Custom["MusicBrainz Release Group Id"] = string(release.ReleaseGroup.ID)
-	out.Custom["MusicBrainz Release Track Id"] = tid
-	out.Custom["MusicBrainz Track Id"] = string(getTrackRecordingID(release, gomusicbrainz.MBID(tid)))
+	out.Custom["MusicBrainz Track Id"] = recordingID
 	out.Custom["ORIGINALDATE"] = formatDate(release.ReleaseGroup.FirstReleaseDate)
 	out.Custom["ORIGINALYEAR"] = fmt.Sprintf("%d", release.ReleaseGroup.FirstReleaseDate.Year())
 	out.Custom["SCRIPT"] = release.TextRepresentation.Script
