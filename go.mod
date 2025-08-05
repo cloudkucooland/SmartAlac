@@ -22,4 +22,4 @@ require (
 	github.com/xrash/smetrics v0.0.0-20250705151800-55b8f293f342 // indirect
 )
 
-replace github.com/Sorrow446/go-mp4tag => ../go-mp4tag
+// replace github.com/Sorrow446/go-mp4tag => ../go-mp4tag
