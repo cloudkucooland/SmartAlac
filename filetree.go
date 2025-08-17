@@ -29,6 +29,10 @@ func WalkTree(d string) error {
 
 // https://pkg.go.dev/io/fs#WalkDirFunc
 func wdf(p string, d fs.DirEntry, err error) error {
+	if err != nil {
+		return err
+	}
+
 	if d == nil || d.IsDir() {
 		return nil
 	}
