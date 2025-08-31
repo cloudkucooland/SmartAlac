@@ -6,6 +6,7 @@ import (
 
 var dryrun bool
 var debug bool
+var finaldir = "/home/music/alac"
 
 func Dryrun(b bool) {
 	dryrun = b

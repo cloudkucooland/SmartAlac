@@ -124,9 +124,15 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 
 	// per track items
 	medium := getMedium(release, in.DiscNumber)
-	recording := getRecording(release, gomusicbrainz.MBID(recordingID))
 
-	out.Artist = fmtArtistCredit(recording.ArtistCredit.NameCredits)
+	recording := getRecording(release, gomusicbrainz.MBID(recordingID))
+	if recording != nil {
+		out.Artist = fmtArtistCredit(recording.ArtistCredit.NameCredits)
+		out.Title = recording.Title
+		out.Custom["ARTISTS"] = fmtArtistList(recording.ArtistCredit.NameCredits)
+		out.Custom["MusicBrainz Artist Id"] = joinArtistIDs(recording.ArtistCredit.NameCredits)
+	}
+
 	out.Comment = in.Comment
 	// out.Conductor:
 	// out.Copyright:
@@ -137,11 +143,9 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	// out.Genre:
 	out.Lyrics = in.Lyrics
 	// out.Narrator:
-	out.Title = recording.Title
 	// out.TitleSort:
 	out.TrackNumber = in.TrackNumber
 
-	out.Custom["ARTISTS"] = fmtArtistList(recording.ArtistCredit.NameCredits)
 	if release.Asin != "" {
 		out.Custom["ASIN"] = release.Asin
 	}
@@ -156,7 +160,6 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	out.Custom["MusicBrainz Album Release Country"] = release.CountryCode
 	out.Custom["MusicBrainz Album Status"] = strings.ToLower(release.Status)
 	out.Custom["MusicBrainz Album Type"] = strings.ToLower(release.ReleaseGroup.Type)
-	out.Custom["MusicBrainz Artist Id"] = joinArtistIDs(recording.ArtistCredit.NameCredits)
 	out.Custom["MusicBrainz Release Group Id"] = string(release.ReleaseGroup.ID)
 	out.Custom["MusicBrainz Track Id"] = recordingID
 	out.Custom["ORIGINALDATE"] = formatDate(release.ReleaseGroup.FirstReleaseDate)
