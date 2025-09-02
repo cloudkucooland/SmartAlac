@@ -80,24 +80,31 @@ func wdf(p string, d fs.DirEntry, err error) error {
 	}
 	stats.files = stats.files + 1
 
-	newtags, changed, err := updateFromMB(tags)
-	if err != nil {
-		log.Printf("updating: %s\n", err.Error())
-		return err
-	}
-	if changed {
-		stats.changes = stats.changes + showDiffs(tags, newtags)
-		if dryrun {
-			log.Printf("Would have saved if not in dry-run mode: %s\n", newtags.Title)
-			return nil
-		}
+	renametags := tags
 
-		if err := mp4.Write(newtags, []string{}); err != nil {
-			log.Printf("error while saving: %s\n", err.Error())
+	if !skipmb {
+		newtags, changed, err := updateFromMB(tags)
+		renametags = newtags
+		if err != nil {
+			log.Printf("updating: %s\n", err.Error())
 			return err
 		}
+		if changed {
+			stats.changes = stats.changes + showDiffs(tags, newtags)
+			if dryrun {
+				log.Printf("Would have saved if not in dry-run mode: %s\n", newtags.Title)
+				return nil
+			}
 
-		if err := rename(fullpath, newtags); err != nil {
+			if err := mp4.Write(newtags, []string{}); err != nil {
+				log.Printf("error while saving: %s\n", err.Error())
+				return err
+			}
+		}
+	}
+
+	if !skipmove {
+		if err := rename(fullpath, renametags); err != nil {
 			log.Printf("error while renaming: %s\n", err.Error())
 			return err
 		}

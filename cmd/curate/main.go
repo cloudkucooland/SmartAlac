@@ -40,6 +40,16 @@ func main() {
 				Usage:   "skip saving the files",
 			},
 			&cli.BoolFlag{
+				Name:    "skipmb",
+				Aliases: []string{"S"},
+				Usage:   "skip polling musicbrainz",
+			},
+			&cli.BoolFlag{
+				Name:    "skipmove",
+				Aliases: []string{"M"},
+				Usage:   "skip polling musicbrainz",
+			},
+			&cli.BoolFlag{
 				Name:    "debug",
 				Aliases: []string{"V"},
 				Usage:   "verbose info dumps",

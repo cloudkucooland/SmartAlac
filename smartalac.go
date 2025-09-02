@@ -6,6 +6,8 @@ import (
 
 var dryrun bool
 var debug bool
+var skipmb bool
+var skipmove bool
 var overwrite bool
 var finaldir = "/home/music/alac"
 
@@ -23,6 +25,14 @@ func Overwrite(b bool) {
 
 func Finaldir(f string) {
 	finaldir = f
+}
+
+func SkipMB(b bool) {
+	skipmb = b
+}
+
+func SkipMove(b bool) {
+	skipmove = b
 }
 
 var stats struct {
