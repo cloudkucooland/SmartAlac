@@ -6,6 +6,7 @@ import (
 
 var dryrun bool
 var debug bool
+var overwrite bool
 var finaldir = "/home/music/alac"
 
 func Dryrun(b bool) {
@@ -14,6 +15,14 @@ func Dryrun(b bool) {
 
 func Debug(b bool) {
 	debug = b
+}
+
+func Overwrite(b bool) {
+	overwrite = b
+}
+
+func Finaldir(f string) {
+	finaldir = f
 }
 
 var stats struct {

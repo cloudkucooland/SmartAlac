@@ -34,7 +34,7 @@ func init() {
 
 func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 	if debug {
-		log.Printf("%# v\n", pretty.Formatter(in))
+		log.Printf("%# v", pretty.Formatter(in))
 	}
 
 	out := mp4tag.MP4Tags{
@@ -92,12 +92,12 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 		release, err = client.LookupRelease(gomusicbrainz.MBID(releaseid), "artist-credits", "recordings", "release-groups", "media", "url-rels", "labels", "artists")
 		if err != nil {
 			stats.badqueries[releaseid] = true
-			log.Printf("query to MusicBrainz failed for %s: %s\n", releaseid, err.Error())
+			log.Printf("query to MusicBrainz failed for %s: %s", releaseid, err.Error())
 			return in, false, err
 		}
 
 		if debug {
-			log.Printf("%# v\n", pretty.Formatter(release))
+			log.Printf("%# v", pretty.Formatter(release))
 		}
 
 		releases[releaseid] = release
@@ -131,6 +131,8 @@ func updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
 		out.Title = recording.Title
 		out.Custom["ARTISTS"] = fmtArtistList(recording.ArtistCredit.NameCredits)
 		out.Custom["MusicBrainz Artist Id"] = joinArtistIDs(recording.ArtistCredit.NameCredits)
+	} else {
+		log.Printf("release does not contain recording: %s %s %s", in.AlbumArtist, in.AlbumSort, in.Title)
 	}
 
 	out.Comment = in.Comment

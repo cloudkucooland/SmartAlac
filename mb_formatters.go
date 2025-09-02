@@ -1,7 +1,6 @@
 package sa
 
 import (
-	"log"
 	"sort"
 	"strings"
 
@@ -39,7 +38,6 @@ func fmtArtistCredit(a []gomusicbrainz.NameCredit) string {
 		}
 		s += v.Artist.Name
 	}
-	// log.Printf("fmtArtistCredit: %s", s)
 	return s
 }
 
@@ -51,7 +49,6 @@ func fmtArtistList(a []gomusicbrainz.NameCredit) string {
 		}
 		s += v.Artist.Name
 	}
-	// log.Printf("fmtArtistList: %s", s)
 	return s
 }
 
@@ -63,7 +60,6 @@ func fmtArtistCreditSort(a []gomusicbrainz.NameCredit) string {
 		}
 		s += v.Artist.SortName
 	}
-	// log.Printf("fmtArtistCreditSort: %s", s)
 	return s
 }
 
@@ -86,17 +82,8 @@ func getRecording(r *gomusicbrainz.Release, recordingID gomusicbrainz.MBID) *gom
 			}
 		}
 	}
-	log.Println("unable to find matching trackID")
 	return nil
 }
-
-/* func getTrackRecordingID(r *gomusicbrainz.Release, trackID gomusicbrainz.MBID) gomusicbrainz.MBID {
-	t := getTrack(r, trackID)
-	if t == nil {
-		return ""
-	}
-	return t.Recording.ID
-} */
 
 func fmtCatalogNumber(l []gomusicbrainz.LabelInfo) string {
 	// fast-path for the normal case

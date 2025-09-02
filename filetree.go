@@ -198,18 +198,40 @@ func rename(fullpath string, tags *mp4tag.MP4Tags) error {
 	}
 
 	_, err = os.Stat(finalpath)
-	if err == nil {
+	if err == nil && !overwrite {
 		log.Printf("file already exists, not overwriting: %s (from %s)\n", finalpath, fullpath)
 		return nil
 	}
 	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
+	if overwrite {
+		if err := os.Remove(finalpath); err != nil {
+			return err
+		}
+	}
 
 	fmt.Printf("moving %s to %s\n", fullpath, finalpath)
 	if err := os.Rename(fullpath, finalpath); err != nil {
+		// XXX this is lazy, only do this if the error indicates this is the right action ...
+		return move(fullpath, finalpath)
+	}
+
+	return nil
+}
+
+// cross-mountpoint safe
+func move(oldpath, newpath string) error {
+	d, err := os.ReadFile(oldpath)
+	if err != nil {
 		return err
 	}
 
+	if err = os.WriteFile(newpath, d, 0644); err != nil {
+		return err
+	}
+	if err := os.Remove(oldpath); err != nil {
+		return err
+	}
 	return nil
 }
