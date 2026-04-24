@@ -216,6 +216,12 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 	}
 	out.Composer = in.Composer // We might overwrite this in processRelations
 
+	if c.Config.Debug {
+		temp := out
+		temp.Pictures = nil
+		log.Printf("AFTER MB UPDATE: %# v", pretty.Formatter(temp))
+	}
+
 	return &out, true, nil
 }
 

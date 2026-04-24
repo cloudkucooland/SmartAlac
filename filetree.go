@@ -117,6 +117,10 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 
 func showDiffs(in, out *mp4tag.MP4Tags) int {
 	d := pretty.Diff(in, out)
+	for _, v := range d {
+		sp := strings.SplitN(v, ":", 2)
+		fmt.Printf("%s\t%s\n", sp[0], sp[1])
+	}
 	return len(d)
 }
 
