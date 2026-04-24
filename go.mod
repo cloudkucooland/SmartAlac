@@ -20,4 +20,4 @@ require (
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 )
 
-// replace github.com/Sorrow446/go-mp4tag => ../go-mp4tag
+replace github.com/Sorrow446/go-mp4tag => github.com/cloudkucooland/go-mp4tag v0.0.0-20260424214855-e79d6c04b1c0

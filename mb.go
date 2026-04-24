@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 	"unsafe"
 
 	"github.com/Sorrow446/go-mp4tag"
@@ -48,9 +49,12 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 		return in, false, fmt.Errorf("%s failed once already, skipping", releaseid)
 	}
 	c.Stats.mu.Unlock()
+c.rl.Take()
 
-	c.rl.Take()
-
+var metadata mb5_metadata
+var retryCount int
+for {
+	// Prepare query parameters for explicit "inc" request
 	var params [1]*byte
 	p1 := []byte("inc")
 	params[0] = &p1[0]
@@ -59,18 +63,30 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 	v1 := []byte("artists labels recordings release-groups url-rels artist-credits work-rels artist-rels work-level-rels")
 	values[0] = &v1[0]
 
-	metadata := mb5_query_query(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params), unsafe.Pointer(&values))
-	if metadata == nil {
-		c.Stats.mu.Lock()
-		c.Stats.BadQueries[releaseid] = true
-		c.Stats.mu.Unlock()
-
-		var errbuf [256]byte
-		mb5_query_get_lasterrormessage(c.mb5query, &errbuf[0], 256)
-		cErr := strings.Trim(string(errbuf[:]), "\x00")
-		return in, false, fmt.Errorf("query to MusicBrainz failed for %s: %s", releaseid, cErr)
+	// Query libmusicbrainz5
+	metadata = mb5_query_query(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params), unsafe.Pointer(&values))
+	if metadata != nil {
+		break
 	}
-	defer mb5_metadata_delete(metadata)
+
+	lastCode := mb5_query_get_lasthttpcode(c.mb5query)
+	if lastCode == 503 && retryCount < 3 {
+		retryCount++
+		log.Printf("MusicBrainz returned 503, retrying in 5 seconds (attempt %d/3)...", retryCount)
+		time.Sleep(5 * time.Second)
+		continue
+	}
+
+	c.Stats.mu.Lock()
+	c.Stats.BadQueries[releaseid] = true
+	c.Stats.mu.Unlock()
+
+	var errbuf [256]byte
+	mb5_query_get_lasterrormessage(c.mb5query, &errbuf[0], 256)
+	cErr := strings.Trim(string(errbuf[:]), "\x00")
+	return in, false, fmt.Errorf("query to MusicBrainz failed for %s (HTTP %d): %s", releaseid, lastCode, cErr)
+}
+defer mb5_metadata_delete(metadata)
 
 	release := mb5_metadata_get_release(metadata)
 	if release == nil {
@@ -201,9 +217,6 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 			out.Custom["Country"] = countryName
 		}
 		out.Custom["MusicBrainz Album Release Country"] = countryCode
-	}
-	if status := mb5String(mb5_release_get_status, unsafe.Pointer(release)); status != "" {
-		out.Custom["MusicBrainz Album Status"] = strings.ToLower(status)
 	}
 	
 	if foundMedium != nil {
