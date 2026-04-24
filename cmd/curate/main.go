@@ -1,25 +1,21 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 
 	"github.com/cloudkucooland/SmartAlac"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func main() {
-	app := &cli.App{
+	app := &cli.Command{
 		Name:    "curate",
-		Version: "v0.5.0",
-		Authors: []*cli.Author{
-			{
-				Name:  "Scot C. Bontrager",
-				Email: "cloudkucooland@gmail.com",
-			},
-		},
+		Usage:   "Smart ALAC curator using MusicBrainz",
+		Version: "v0.6.0",
+		Authors: []any{"Scot C. Bontrager <cloudkucooland@gmail.com>"},
 		Copyright: "© 2025 Scot C. Bontrager",
-		HelpName:  "curate",
 
 		Flags: []cli.Flag{
 			&cli.StringFlag{
@@ -47,7 +43,7 @@ func main() {
 			&cli.BoolFlag{
 				Name:    "skipmove",
 				Aliases: []string{"M"},
-				Usage:   "skip polling musicbrainz",
+				Usage:   "skip moving files",
 			},
 			&cli.BoolFlag{
 				Name:    "debug",
@@ -60,23 +56,28 @@ func main() {
 				Usage:   "overwrite files if duplicates exist",
 			},
 		},
-		Action: func(cCtx *cli.Context) error {
-			sa.Dryrun(cCtx.Bool("dryrun"))
-			sa.Debug(cCtx.Bool("debug"))
-			sa.Overwrite(cCtx.Bool("overwrite"))
-			sa.Finaldir(cCtx.String("finaldir"))
-
-			dir := cCtx.String("dir")
-			if err := sa.WalkTree(dir); err != nil {
-				log.Panic(err)
+		Action: func(ctx context.Context, cmd *cli.Command) error {
+			cfg := sa.Config{
+				DryRun:    cmd.Bool("dryrun"),
+				Debug:     cmd.Bool("debug"),
+				SkipMB:    cmd.Bool("skipmb"),
+				SkipMove:  cmd.Bool("skipmove"),
+				Overwrite: cmd.Bool("overwrite"),
+				FinalDir:  cmd.String("finaldir"),
 			}
 
-			sa.ShowStats()
+			curator := sa.NewCurator(cfg)
+			dir := cmd.String("dir")
+			if err := curator.WalkTree(dir); err != nil {
+				return err
+			}
+
+			curator.ShowStats()
 			return nil
 		},
 	}
 
-	if err := app.Run(os.Args); err != nil {
+	if err := app.Run(context.Background(), os.Args); err != nil {
 		log.Fatal(err)
 	}
 }
