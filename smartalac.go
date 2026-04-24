@@ -2,49 +2,60 @@ package sa
 
 import (
 	"log"
+	"sync"
+
+	"go.uber.org/ratelimit"
 )
 
-var dryrun bool
-var debug bool
-var skipmb bool
-var skipmove bool
-var overwrite bool
-var finaldir = "/home/music/alac"
-
-func Dryrun(b bool) {
-	dryrun = b
+type Config struct {
+	DryRun    bool
+	Debug     bool
+	SkipMB    bool
+	SkipMove  bool
+	Overwrite bool
+	FinalDir  string
 }
 
-func Debug(b bool) {
-	debug = b
+type Stats struct {
+	Changes    int
+	Files      int
+	BadQueries map[string]bool
+	mu         sync.Mutex
 }
 
-func Overwrite(b bool) {
-	overwrite = b
+type Curator struct {
+	Config   Config
+	Stats    Stats
+	rl       ratelimit.Limiter
+	mu       sync.Mutex
+
+	mb5query mb5_query
 }
 
-func Finaldir(f string) {
-	finaldir = f
+func NewCurator(cfg Config) *Curator {
+	if cfg.FinalDir == "" {
+		cfg.FinalDir = "/home/music/alac"
+	}
+
+	c := &Curator{
+		Config: cfg,
+		Stats: Stats{
+			BadQueries: make(map[string]bool),
+		},
+		rl:       ratelimit.New(1),
+	}
+
+	if err := c.initMB5(); err != nil {
+		log.Printf("warning: mb5 init failed: %v", err)
+	} else {
+		c.mb5query = mb5_query_new("SmartAlac", "", 0)
+	}
+
+	return c
 }
 
-func SkipMB(b bool) {
-	skipmb = b
-}
-
-func SkipMove(b bool) {
-	skipmove = b
-}
-
-var stats struct {
-	changes    int
-	files      int
-	badqueries map[string]bool
-}
-
-func init() {
-	stats.badqueries = make(map[string]bool)
-}
-
-func ShowStats() {
-	log.Printf("%d files / %d changes / %d bad queries", stats.files, stats.changes, len(stats.badqueries))
+func (c *Curator) ShowStats() {
+	c.Stats.mu.Lock()
+	defer c.Stats.mu.Unlock()
+	log.Printf("%d files / %d changes / %d bad queries", c.Stats.Files, c.Stats.Changes, len(c.Stats.BadQueries))
 }
