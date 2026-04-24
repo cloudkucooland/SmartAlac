@@ -16,7 +16,9 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 	}
 
 	if c.Config.Debug {
-		log.Printf("%# v", pretty.Formatter(in))
+		temp := *in
+		temp.Pictures = nil
+		log.Printf("%# v", pretty.Formatter(temp))
 	}
 
 	releaseid, ok := in.Custom["MusicBrainz Album Id"]
@@ -169,7 +171,7 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 			fmt.Sscanf(origDate[:4], "%d", &out.Year)
 		}
 		out.Custom["MusicBrainz Release Group Id"] = mb5String(mb5_releasegroup_get_id, unsafe.Pointer(rg))
-		out.Custom["MusicBrainz Album Type"] = strings.ToLower(mb5String(mb5_releasegroup_get_type, unsafe.Pointer(rg)))
+		// out.Custom["MusicBrainz Album Type"] = strings.ToLower(mb5String(mb5_releasegroup_get_type, unsafe.Pointer(rg)))
 	}
 
 	out.CustomGenre = in.CustomGenre
@@ -197,8 +199,8 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 		out.Custom["MEDIA"] = mb5String(mb5_medium_get_format, unsafe.Pointer(foundMedium))
 	}
 
-	out.Custom["LANGUAGE"] = mb5String(mb5_release_get_language, unsafe.Pointer(release))
-	out.Custom["SCRIPT"] = mb5String(mb5_release_get_script, unsafe.Pointer(release))
+	// out.Custom["LANGUAGE"] = mb5String(mb5_release_get_language, unsafe.Pointer(release))
+	// out.Custom["SCRIPT"] = mb5String(mb5_release_get_script, unsafe.Pointer(release))
 	out.Custom["MusicBrainz Album Artist Id"] = c.joinArtistIDsMB5(ac)
 	out.Custom["MusicBrainz Album Id"] = releaseid
 	out.Custom["MusicBrainz Track Id"] = recordingID

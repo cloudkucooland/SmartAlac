@@ -48,7 +48,7 @@ func NewCurator(cfg Config) *Curator {
 	if err := c.initMB5(); err != nil {
 		log.Printf("warning: mb5 init failed: %v", err)
 	} else {
-		c.mb5query = mb5_query_new("SmartAlac", "", 0)
+		c.mb5query = mb5_query_new("SmartAlac", "musicbrainz.org", 80)
 	}
 
 	return c
