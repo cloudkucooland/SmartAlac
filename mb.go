@@ -51,8 +51,6 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 
 	c.rl.Take()
 
-	// Prepare query parameters for explicit "inc" request
-	// Expanded to include relations and works
 	var params [1]*byte
 	p1 := []byte("inc")
 	params[0] = &p1[0]
@@ -61,7 +59,6 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 	v1 := []byte("artists labels recordings release-groups url-rels artist-credits work-rels artist-rels work-level-rels")
 	values[0] = &v1[0]
 
-	// Query libmusicbrainz5
 	metadata := mb5_query_query(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params), unsafe.Pointer(&values))
 	if metadata == nil {
 		c.Stats.mu.Lock()
@@ -80,19 +77,17 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 		return in, false, fmt.Errorf("no release in metadata for %s", releaseid)
 	}
 
-	out := mp4tag.MP4Tags{
-		ItunesAdvisory: 0,
-		ItunesAlbumID:  -1,
-		ItunesArtistID: -1,
-	}
-	out.Custom = make(map[string]string)
-
-	// Copy preserved customs
-	copyCustoms := []string{"KEY", "MOOD", "URL_LYRICS_SITE", "VINYLDIGITIZER", "URL_DISCOGS_ARTIST_SITE", "DIGITIZE_DATE", "DIGITIZE_INFO", "MusicBrainz Disc Id", "initialkey", "MusicBrainz Release Track Id"}
-	for _, v := range copyCustoms {
-		if val, ok := in.Custom[v]; ok {
-			out.Custom[v] = val
+	// Start with a copy of input tags to preserve existing data
+	out := *in
+	if out.Custom == nil {
+		out.Custom = make(map[string]string)
+	} else {
+		// Deep copy the map to avoid side effects
+		newCustom := make(map[string]string)
+		for k, v := range out.Custom {
+			newCustom[k] = v
 		}
+		out.Custom = newCustom
 	}
 
 	out.Album = mb5String(mb5_release_get_title, unsafe.Pointer(release))
@@ -100,25 +95,19 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 	
 	if disambig := mb5String(mb5_release_get_disambiguation, unsafe.Pointer(release)); disambig != "" {
 		out.Comment = disambig
-	} else {
-		out.Comment = in.Comment
 	}
 
 	ac := mb5_release_get_artistcredit(release)
-	aa := c.fmtArtistCreditMB5(ac)
-	asa := c.fmtArtistCreditSortMB5(ac)
-	out.AlbumArtist = aa
-	if aa != asa {
+	if aa := c.fmtArtistCreditMB5(ac); aa != "" {
+		out.AlbumArtist = aa
+	}
+	if asa := c.fmtArtistCreditSortMB5(ac); asa != "" && asa != out.AlbumArtist {
 		out.AlbumArtistSort = asa
 	}
 
-	out.BPM = in.BPM
-	out.DiscNumber = in.DiscNumber
-	
 	mediumList := mb5_release_get_mediumlist(release)
 	out.DiscTotal = int16(mb5_medium_list_size(mediumList))
 
-	// Find track and recording
 	var foundTrack mb5_track
 	var foundMedium mb5_medium
 	for i := 0; i < int(out.DiscTotal); i++ {
@@ -145,20 +134,29 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 			if tac == nil {
 				tac = mb5_track_get_artistcredit(foundTrack)
 			}
-			out.Artist = c.fmtArtistCreditMB5(tac)
+			if artist := c.fmtArtistCreditMB5(tac); artist != "" {
+				out.Artist = artist
+			}
 			
 			title := mb5String(mb5_recording_get_title, unsafe.Pointer(recording))
 			if title == "" {
 				title = mb5String(mb5_track_get_title, unsafe.Pointer(foundTrack))
 			}
-			out.Title = title
+			if title != "" {
+				out.Title = title
+			}
 
-			out.Custom["ARTISTS"] = c.fmtArtistListMB5(tac)
-			out.Custom["MusicBrainz Artist Id"] = c.joinArtistIDsMB5(tac)
+			if alist := c.fmtArtistListMB5(tac); alist != "" {
+				out.Custom["ARTISTS"] = alist
+			}
+			if aids := c.joinArtistIDsMB5(tac); aids != "" {
+				out.Custom["MusicBrainz Artist Id"] = aids
+			}
 
-			// Advanced: Relations and ISRCs
 			c.processRelations(recording, out.Custom, &out)
-			out.Custom["ISRC"] = c.fmtISRCsMB5(recording)
+			if isrcs := c.fmtISRCsMB5(recording); isrcs != "" {
+				out.Custom["ISRC"] = isrcs
+			}
 		}
 	}
 
@@ -170,51 +168,56 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 			out.Custom["ORIGINALYEAR"] = origDate[:4]
 			fmt.Sscanf(origDate[:4], "%d", &out.Year)
 		}
-		out.Custom["MusicBrainz Release Group Id"] = mb5String(mb5_releasegroup_get_id, unsafe.Pointer(rg))
-		// out.Custom["MusicBrainz Album Type"] = strings.ToLower(mb5String(mb5_releasegroup_get_type, unsafe.Pointer(rg)))
+		if rgid := mb5String(mb5_releasegroup_get_id, unsafe.Pointer(rg)); rgid != "" {
+			out.Custom["MusicBrainz Release Group Id"] = rgid
+		}
+		// Album Type is commented out in mb5.go
 	}
 
-	out.CustomGenre = in.CustomGenre
-	out.Date = mb5String(mb5_release_get_date, unsafe.Pointer(release))
-	out.Lyrics = in.Lyrics
-	out.TrackNumber = in.TrackNumber
+	if date := mb5String(mb5_release_get_date, unsafe.Pointer(release)); date != "" {
+		out.Date = date
+	}
 
 	if asin := mb5String(mb5_release_get_asin, unsafe.Pointer(release)); asin != "" {
 		out.Custom["ASIN"] = asin
 	}
-	out.Custom["BARCODE"] = mb5String(mb5_release_get_barcode, unsafe.Pointer(release))
+	if barcode := mb5String(mb5_release_get_barcode, unsafe.Pointer(release)); barcode != "" {
+		out.Custom["BARCODE"] = barcode
+	}
 	
 	liList := mb5_release_get_labelinfolist(release)
 	if liList != nil {
-		out.Custom["LABEL"] = c.fmtLabelsMB5(liList)
-		out.Custom["CATALOGNUMBER"] = c.fmtCatalogNumbersMB5(liList)
+		if label := c.fmtLabelsMB5(liList); label != "" {
+			out.Custom["LABEL"] = label
+		}
+		if cat := c.fmtCatalogNumbersMB5(liList); cat != "" {
+			out.Custom["CATALOGNUMBER"] = cat
+		}
 	}
 
 	countryCode := mb5String(mb5_release_get_country, unsafe.Pointer(release))
-	out.Custom["Country"] = resolveCountry(countryCode)
-	out.Custom["MusicBrainz Album Release Country"] = countryCode
-	out.Custom["MusicBrainz Album Status"] = strings.ToLower(mb5String(mb5_release_get_status, unsafe.Pointer(release)))
+	if countryCode != "" {
+		if countryName := resolveCountry(countryCode); countryName != "" {
+			out.Custom["Country"] = countryName
+		}
+		out.Custom["MusicBrainz Album Release Country"] = countryCode
+	}
+	if status := mb5String(mb5_release_get_status, unsafe.Pointer(release)); status != "" {
+		out.Custom["MusicBrainz Album Status"] = strings.ToLower(status)
+	}
 	
 	if foundMedium != nil {
-		out.Custom["MEDIA"] = mb5String(mb5_medium_get_format, unsafe.Pointer(foundMedium))
-	}
-
-	// out.Custom["LANGUAGE"] = mb5String(mb5_release_get_language, unsafe.Pointer(release))
-	// out.Custom["SCRIPT"] = mb5String(mb5_release_get_script, unsafe.Pointer(release))
-	out.Custom["MusicBrainz Album Artist Id"] = c.joinArtistIDsMB5(ac)
-	out.Custom["MusicBrainz Album Id"] = releaseid
-	out.Custom["MusicBrainz Track Id"] = recordingID
-
-	// Copy remaining unhandled implements if they still exist in input
-	copyCustomsNotImpl := []string{"MusicBrainz Work Id", "WORK", "LYRICIST", "PRODUCER", "ENGINEER", "MIXER", "REMIXER", "WRITER", "ARRANGER", "DISCSUBTITLE"}
-	for _, v := range copyCustomsNotImpl {
-		if val, ok := in.Custom[v]; ok {
-			if _, exists := out.Custom[v]; !exists {
-				out.Custom[v] = val
-			}
+		if format := mb5String(mb5_medium_get_format, unsafe.Pointer(foundMedium)); format != "" {
+			out.Custom["MEDIA"] = mediumFormat(format)
 		}
 	}
-	out.Composer = in.Composer // We might overwrite this in processRelations
+
+	// LANGUAGE and SCRIPT are commented out in mb5.go
+	if aids := c.joinArtistIDsMB5(ac); aids != "" {
+		out.Custom["MusicBrainz Album Artist Id"] = aids
+	}
+	out.Custom["MusicBrainz Album Id"] = releaseid
+	out.Custom["MusicBrainz Track Id"] = recordingID
 
 	if c.Config.Debug {
 		temp := out
@@ -253,21 +256,25 @@ func (c *Curator) processRelations(recording mb5_recording, custom map[string]st
 			rel := mb5_relation_list_item(rl, j)
 			relType := mb5String(mb5_relation_get_type, unsafe.Pointer(rel))
 			
-			// Handle Artist relations
 			if role, ok := roles[relType]; ok {
 				artist := mb5_relation_get_artist(rel)
 				if artist != nil {
 					name := mb5String(mb5_artist_get_name, unsafe.Pointer(artist))
-					credits[role] = append(credits[role], name)
+					if name != "" {
+						credits[role] = append(credits[role], name)
+					}
 				}
 			}
 
-			// Handle Work relations
 			if relType == "performance" {
 				work := mb5_relation_get_work(rel)
 				if work != nil {
-					custom["MusicBrainz Work Id"] = mb5String(mb5_work_get_id, unsafe.Pointer(work))
-					custom["WORK"] = mb5String(mb5_work_get_title, unsafe.Pointer(work))
+					if wid := mb5String(mb5_work_get_id, unsafe.Pointer(work)); wid != "" {
+						custom["MusicBrainz Work Id"] = wid
+					}
+					if wtitle := mb5String(mb5_work_get_title, unsafe.Pointer(work)); wtitle != "" {
+						custom["WORK"] = wtitle
+					}
 				}
 			}
 		}
@@ -275,12 +282,14 @@ func (c *Curator) processRelations(recording mb5_recording, custom map[string]st
 
 	for role, names := range credits {
 		val := strings.Join(names, ", ")
-		custom[role] = val
-		if role == "COMPOSER" {
-			out.Composer = val
-		}
-		if role == "CONDUCTOR" {
-			out.Conductor = val
+		if val != "" {
+			custom[role] = val
+			if role == "COMPOSER" {
+				out.Composer = val
+			}
+			if role == "CONDUCTOR" {
+				out.Conductor = val
+			}
 		}
 	}
 }

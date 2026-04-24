@@ -142,7 +142,7 @@ func fmtLabel(l []gomusicbrainz.LabelInfo) string {
 }
 
 func mediumFormat(f string) string {
-	return strings.Replace(f, "\"", "″", 1)
+	return strings.ReplaceAll(f, "\"", "″")
 }
 
 func formatDate(d gomusicbrainz.BrainzTime) string {
