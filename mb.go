@@ -1,8 +1,10 @@
 package sa
 
 import (
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"strings"
 	"time"
 	"unsafe"
@@ -11,7 +13,24 @@ import (
 	"github.com/kr/pretty"
 )
 
-func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error) {
+type AcoustIDResponse struct {
+	Status  string `json:"status"`
+	Results []struct {
+		ID         string  `json:"id"`
+		Score      float64 `json:"score"`
+		Recordings []struct {
+			ID            string `json:"id"`
+			Releasegroups []struct {
+				ID       string `json:"id"`
+				Releases []struct {
+					ID string `json:"id"`
+				} `json:"releases"`
+			} `json:"releasegroups"`
+		} `json:"recordings"`
+	} `json:"results"`
+}
+
+func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.MP4Tags, bool, error) {
 	if c.mb5query == nil {
 		return in, false, fmt.Errorf("mb5 query not initialized")
 	}
@@ -22,10 +41,14 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 		log.Printf("%# v", pretty.Formatter(temp))
 	}
 
-	releaseid, ok := in.Custom["MusicBrainz Album Id"]
-	if !ok {
-		log.Println("no release ID, skipping")
-		return in, false, nil
+	releaseid := overrideID
+	if releaseid == "" {
+		var ok bool
+		releaseid, ok = in.Custom["MusicBrainz Album Id"]
+		if !ok {
+			log.Println("no release ID, skipping")
+			return in, false, nil
+		}
 	}
 
 	recordingID, _ := in.Custom["MusicBrainz Track Id"]
@@ -431,4 +454,140 @@ func (c *Curator) fmtCatalogNumbersMB5(liList mb5_label_info_list) string {
 		}
 	}
 	return strings.Join(cats, "; ")
+}
+
+func (c *Curator) updateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.MP4Tags, bool, error) {
+	if c.mb5query == nil {
+		return in, false, fmt.Errorf("mb5 query not initialized")
+	}
+
+	c.rl.Take()
+
+	var relList mb5_release_list
+	var retryCount int
+	for {
+		relList = mb5_query_lookup_discid(c.mb5query, mb5_discid(discid))
+		if relList != nil {
+			break
+		}
+
+		lastCode := mb5_query_get_lasthttpcode(c.mb5query)
+		if lastCode == 503 && retryCount < 3 {
+			retryCount++
+			log.Printf("MusicBrainz returned 503 (discid), retrying in 5 seconds (attempt %d/3)...", retryCount)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		return in, false, fmt.Errorf("discid lookup failed for %s (HTTP %d)", discid, lastCode)
+	}
+	defer mb5_release_list_delete(relList)
+
+	if mb5_release_list_size(relList) == 0 {
+		return in, false, fmt.Errorf("no releases found for discid %s", discid)
+	}
+
+	// For now, we take the first release and use its ID
+	rel := mb5_release_list_item(relList, 0)
+	var relBuf [256]byte
+	mb5_release_get_id(unsafe.Pointer(rel), &relBuf[0], 256)
+	releaseID := string(relBuf[:cStringLen(relBuf[:])])
+
+	if c.Config.Debug {
+		log.Printf("resolved discid %s to release %s\n", discid, releaseID)
+	}
+
+	// Now call the standard update with this release ID
+	return c.updateFromMB(in, releaseID)
+}
+
+func (c *Curator) updateFromTOC(in *mp4tag.MP4Tags, toc string) (*mp4tag.MP4Tags, bool, error) {
+	if c.mb5query == nil {
+		return in, false, fmt.Errorf("mb5 query not initialized")
+	}
+
+	c.rl.Take()
+
+	var relList mb5_release_list
+	var retryCount int
+	for {
+		relList = mb5_query_lookup_toc(c.mb5query, toc)
+		if relList != nil {
+			break
+		}
+
+		lastCode := mb5_query_get_lasthttpcode(c.mb5query)
+		if lastCode == 503 && retryCount < 3 {
+			retryCount++
+			log.Printf("MusicBrainz returned 503 (toc), retrying in 5 seconds (attempt %d/3)...", retryCount)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		return in, false, fmt.Errorf("toc lookup failed for %s (HTTP %d)", toc, lastCode)
+	}
+	defer mb5_release_list_delete(relList)
+
+	if mb5_release_list_size(relList) == 0 {
+		return in, false, fmt.Errorf("no releases found for toc %s", toc)
+	}
+
+	// For now, we take the first release and use its ID
+	rel := mb5_release_list_item(relList, 0)
+	var relBuf [256]byte
+	mb5_release_get_id(unsafe.Pointer(rel), &relBuf[0], 256)
+	releaseID := string(relBuf[:cStringLen(relBuf[:])])
+
+	if c.Config.Debug {
+		log.Printf("resolved toc %s to release %s\n", toc, releaseID)
+	}
+
+	// Now call the standard update with this release ID
+	return c.updateFromMB(in, releaseID)
+}
+
+func (c *Curator) acoustIDLookup(fingerprint string, duration int) (string, error) {
+	if c.Config.AcoustIDKey == "" {
+		return "", fmt.Errorf("AcoustID key not set")
+	}
+
+	url := fmt.Sprintf("https://api.acoustid.org/v2/lookup?client=%s&meta=releasegroups+releases&duration=%d&fingerprint=%s",
+		c.Config.AcoustIDKey, duration, fingerprint)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("AcoustID API returned HTTP %d", resp.StatusCode)
+	}
+
+	var air AcoustIDResponse
+	if err := json.NewDecoder(resp.Body).Decode(&air); err != nil {
+		return "", err
+	}
+
+	if air.Status != "ok" {
+		return "", fmt.Errorf("AcoustID API status: %s", air.Status)
+	}
+
+	// Find the first release ID with a good score
+	for _, res := range air.Results {
+		if res.Score < 0.8 {
+			continue
+		}
+		for _, rec := range res.Recordings {
+			for _, rg := range rec.Releasegroups {
+				for _, rel := range rg.Releases {
+					if rel.ID != "" {
+						return rel.ID, nil
+					}
+				}
+			}
+		}
+	}
+
+	return "", fmt.Errorf("no high-confidence matches found in AcoustID")
 }

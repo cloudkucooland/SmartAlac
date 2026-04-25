@@ -8,12 +8,13 @@ import (
 )
 
 type Config struct {
-	DryRun    bool
-	Debug     bool
-	SkipMB    bool
-	SkipMove  bool
-	Overwrite bool
-	FinalDir  string
+	DryRun      bool
+	Debug       bool
+	SkipMB      bool
+	SkipMove    bool
+	Overwrite   bool
+	FinalDir    string
+	AcoustIDKey string
 }
 
 type Stats struct {

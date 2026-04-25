@@ -40,6 +40,7 @@ type mb5_isrc unsafe.Pointer
 var (
 	mb5_query_new                    func(string, string, int) mb5_query
 	mb5_query_lookup_discid          func(mb5_query, mb5_discid) mb5_release_list
+	mb5_query_lookup_toc             func(mb5_query, string) mb5_release_list
 	mb5_release_list_size            func(mb5_release_list) int
 	mb5_release_list_item            func(mb5_release_list, int) mb5_release
 	mb5_release_get_id               func(unsafe.Pointer, *byte, int)
@@ -50,6 +51,7 @@ var (
 	mb5_query_get_lastresult         func(mb5_query) mb5_tQueryResult
 	mb5_query_get_lasthttpcode       func(mb5_query) int
 	mb5_metadata_get_disc            func(mb5_metadata) mb5_disc
+	mb5_disc_get_id                  func(mb5_disc, *byte, int)
 	mb5_disc_get_releaselist         func(mb5_disc) mb5_release_list
 	mb5_release_get_title            func(unsafe.Pointer, *byte, int)
 	mb5_release_get_artistcredit     func(mb5_release) mb5_artist_credit
@@ -95,7 +97,6 @@ var (
 	mb5_release_get_barcode          func(unsafe.Pointer, *byte, int)
 	mb5_release_get_asin             func(unsafe.Pointer, *byte, int)
 	mb5_release_get_country          func(unsafe.Pointer, *byte, int)
-	mb5_release_get_script           func(unsafe.Pointer, *byte, int)
 	mb5_release_get_disambiguation   func(unsafe.Pointer, *byte, int)
 	mb5_release_get_labelinfolist    func(mb5_release) mb5_label_info_list
 	mb5_labelinfo_list_item          func(mb5_label_info_list, int) mb5_label_info
@@ -138,6 +139,7 @@ func (c *Curator) initMB5() error {
 
 	purego.RegisterLibFunc(&mb5_query_new, libmusicbrainz5, "mb5_query_new")
 	purego.RegisterLibFunc(&mb5_query_lookup_discid, libmusicbrainz5, "mb5_query_lookup_discid")
+	purego.RegisterLibFunc(&mb5_query_lookup_toc, libmusicbrainz5, "mb5_query_lookup_toc")
 	purego.RegisterLibFunc(&mb5_release_list_size, libmusicbrainz5, "mb5_release_list_size")
 	purego.RegisterLibFunc(&mb5_release_list_item, libmusicbrainz5, "mb5_release_list_item")
 	purego.RegisterLibFunc(&mb5_release_get_id, libmusicbrainz5, "mb5_release_get_id")
@@ -148,6 +150,7 @@ func (c *Curator) initMB5() error {
 	purego.RegisterLibFunc(&mb5_query_get_lastresult, libmusicbrainz5, "mb5_query_get_lastresult")
 	purego.RegisterLibFunc(&mb5_query_get_lasthttpcode, libmusicbrainz5, "mb5_query_get_lasthttpcode")
 	purego.RegisterLibFunc(&mb5_metadata_get_disc, libmusicbrainz5, "mb5_metadata_get_disc")
+	purego.RegisterLibFunc(&mb5_disc_get_id, libmusicbrainz5, "mb5_disc_get_id")
 	purego.RegisterLibFunc(&mb5_disc_get_releaselist, libmusicbrainz5, "mb5_disc_get_releaselist")
 	purego.RegisterLibFunc(&mb5_release_get_title, libmusicbrainz5, "mb5_release_get_title")
 	purego.RegisterLibFunc(&mb5_release_get_artistcredit, libmusicbrainz5, "mb5_release_get_artistcredit")
@@ -192,7 +195,6 @@ func (c *Curator) initMB5() error {
 	purego.RegisterLibFunc(&mb5_release_get_barcode, libmusicbrainz5, "mb5_release_get_barcode")
 	purego.RegisterLibFunc(&mb5_release_get_asin, libmusicbrainz5, "mb5_release_get_asin")
 	purego.RegisterLibFunc(&mb5_release_get_country, libmusicbrainz5, "mb5_release_get_country")
-	purego.RegisterLibFunc(&mb5_release_get_script, libmusicbrainz5, "mb5_release_get_script")
 	purego.RegisterLibFunc(&mb5_release_get_disambiguation, libmusicbrainz5, "mb5_release_get_disambiguation")
 	purego.RegisterLibFunc(&mb5_release_get_labelinfolist, libmusicbrainz5, "mb5_release_get_labelinfolist")
 	purego.RegisterLibFunc(&mb5_labelinfo_list_item, libmusicbrainz5, "mb5_labelinfo_list_item")

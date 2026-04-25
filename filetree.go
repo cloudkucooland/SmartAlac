@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/Sorrow446/go-mp4tag"
+	"github.com/jo-hoe/chromaprint"
 	"github.com/kr/pretty"
 )
 
@@ -62,10 +63,62 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 	if c.Config.Debug {
 		log.Printf("%# v\n", pretty.Formatter(tags.Custom))
 	}
-
 	// if already tagged with MBIDs
 	tid, ok := tags.Custom["MusicBrainz Album Id"]
-	if !ok || tid == "" {
+	discID, _ := tags.Custom["MusicBrainz Disc Id"]
+	toc, _ := tags.Custom["TOC"]
+
+	if tid == "" {
+		// Try to extract MBID or DiscID from directory name: /path/to/Album [MBID]/...
+		dir := filepath.Base(filepath.Dir(p))
+
+		// Check for [MBID] format
+		if idxStart := strings.LastIndex(dir, "["); idxStart != -1 {
+			if idxEnd := strings.LastIndex(dir, "]"); idxEnd != -1 && idxEnd > idxStart+1 {
+				potentialID := dir[idxStart+1 : idxEnd]
+				if len(potentialID) == 36 {
+					tid = potentialID
+					if c.Config.Debug {
+						log.Printf("extracted MBID from directory: %s\n", tid)
+					}
+				}
+			}
+		}
+
+		// Or if the directory name itself is a DiscID (28 chars, base64-ish)
+		if tid == "" && discID == "" && len(dir) == 28 {
+			discID = dir
+			if c.Config.Debug {
+				log.Printf("found potential DiscID in directory name: %s\n", discID)
+			}
+		}
+	}
+
+	if tid == "" && discID == "" && toc == "" {
+		// Final Fallback: AcoustID Fingerprinting
+		if c.Config.AcoustIDKey != "" {
+			if c.Config.Debug {
+				log.Printf("attempting AcoustID lookup for %s\n", p)
+			}
+			chromaprinter, err := chromaprint.NewBuilder().Build()
+			if err == nil {
+				fingerprints, err := chromaprinter.CreateFingerprints(p)
+				if err == nil && len(fingerprints) > 0 {
+					// Use the first fingerprint (AcoustID usually only needs one)
+					fp := fingerprints[0]
+					resolvedID, err := c.acoustIDLookup(fp.Fingerprint, fp.Duration)
+					if err == nil && resolvedID != "" {
+						tid = resolvedID
+						if c.Config.Debug {
+							log.Printf("resolved AcoustID to release %s\n", tid)
+						}
+					}
+				}
+			}
+		}
+	}
+
+	if tid == "" && discID == "" && toc == "" {
 		if c.Config.SkipMB {
 			log.Printf("not tagged with MBIDs, skipping: %s\n", p)
 			return nil
@@ -98,15 +151,11 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 			return nil
 		}
 
-		if tags.Custom == nil {
-			tags.Custom = make(map[string]string)
-		}
-		tags.Custom["MusicBrainz Album Id"] = selected.ID
 		tid = selected.ID
 	}
 
-	if len(tid) != 36 {
-		log.Printf("corrupt MBID [%s]: %s\n", tid, p)
+	if tid == "" && discID == "" && toc == "" {
+		log.Printf("no way to resolve metadata for %s\n", p)
 		return nil
 	}
 
@@ -117,8 +166,20 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 	renametags := tags
 
 	if !c.Config.SkipMB {
-		newtags, changed, err := c.updateFromMB(tags)
+		var newtags *mp4tag.MP4Tags
+		var changed bool
+		var err error
+
+		if tid != "" {
+			newtags, changed, err = c.updateFromMB(tags, tid)
+		} else if discID != "" {
+			newtags, changed, err = c.updateFromDiscID(tags, discID)
+		} else if toc != "" {
+			newtags, changed, err = c.updateFromTOC(tags, toc)
+		}
+
 		renametags = newtags
+...
 		if err != nil {
 			log.Printf("updating: %s\n", err.Error())
 			return err
