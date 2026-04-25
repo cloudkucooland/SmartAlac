@@ -7,6 +7,7 @@ toolchain go1.24.1
 require (
 	github.com/Sorrow446/go-mp4tag v0.0.0-20240130220823-68ce31d53e37
 	github.com/ebitengine/purego v0.10.0
+	github.com/jo-hoe/chromaprint v0.0.0-20260413105333-99a143cad505
 	github.com/kr/pretty v0.3.1
 	github.com/michiwend/gomusicbrainz v0.0.0-20181012083520-6c07e13dd396
 	github.com/urfave/cli/v3 v3.8.0
