@@ -25,10 +25,10 @@ type Stats struct {
 }
 
 type Curator struct {
-	Config   Config
-	Stats    Stats
-	rl       ratelimit.Limiter
-	mu       sync.Mutex
+	Config Config
+	Stats  Stats
+	rl     ratelimit.Limiter
+	mu     sync.Mutex
 
 	mb5query mb5_query
 }
@@ -43,13 +43,13 @@ func NewCurator(cfg Config) *Curator {
 		Stats: Stats{
 			BadQueries: make(map[string]bool),
 		},
-		rl:       ratelimit.New(1),
+		rl: ratelimit.New(1),
 	}
 
 	if err := c.initMB5(); err != nil {
 		log.Printf("warning: mb5 init failed: %v", err)
 	} else {
-		c.mb5query = mb5_query_new("SmartAlac", "musicbrainz.org", 80)
+		c.mb5query = mb5_query_new("SmartAlac", "musicbrainz.org", 0)
 	}
 
 	return c

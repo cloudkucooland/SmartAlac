@@ -68,44 +68,44 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		return in, false, fmt.Errorf("%s failed once already, skipping", releaseid)
 	}
 	c.Stats.mu.Unlock()
-c.rl.Take()
+	c.rl.Take()
 
-var metadata mb5_metadata
-var retryCount int
-for {
-	// Prepare query parameters for explicit "inc" request
-	var params [1]*byte
-	p1 := []byte("inc")
-	params[0] = &p1[0]
+	var metadata mb5_metadata
+	var retryCount int
+	for {
+		// Prepare query parameters for explicit "inc" request
+		var params [1]*byte
+		p1 := []byte("inc")
+		params[0] = &p1[0]
 
-	var values [1]*byte
-	v1 := []byte("artists labels recordings release-groups url-rels artist-credits work-rels artist-rels work-level-rels")
-	values[0] = &v1[0]
+		var values [1]*byte
+		v1 := []byte("artists labels recordings release-groups url-rels artist-credits work-rels artist-rels work-level-rels")
+		values[0] = &v1[0]
 
-	// Query libmusicbrainz5
-	metadata = mb5_query_query(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params), unsafe.Pointer(&values))
-	if metadata != nil {
-		break
+		// Query libmusicbrainz5
+		metadata = mb5_query_query(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params), unsafe.Pointer(&values))
+		if metadata != nil {
+			break
+		}
+
+		lastCode := mb5_query_get_lasthttpcode(c.mb5query)
+		if lastCode == 503 && retryCount < 3 {
+			retryCount++
+			log.Printf("MusicBrainz returned 503, retrying in 5 seconds (attempt %d/3)...", retryCount)
+			time.Sleep(5 * time.Second)
+			continue
+		}
+
+		c.Stats.mu.Lock()
+		c.Stats.BadQueries[releaseid] = true
+		c.Stats.mu.Unlock()
+
+		var errbuf [256]byte
+		mb5_query_get_lasterrormessage(c.mb5query, &errbuf[0], 256)
+		cErr := strings.Trim(string(errbuf[:]), "\x00")
+		return in, false, fmt.Errorf("query to MusicBrainz failed for %s (HTTP %d): %s", releaseid, lastCode, cErr)
 	}
-
-	lastCode := mb5_query_get_lasthttpcode(c.mb5query)
-	if lastCode == 503 && retryCount < 3 {
-		retryCount++
-		log.Printf("MusicBrainz returned 503, retrying in 5 seconds (attempt %d/3)...", retryCount)
-		time.Sleep(5 * time.Second)
-		continue
-	}
-
-	c.Stats.mu.Lock()
-	c.Stats.BadQueries[releaseid] = true
-	c.Stats.mu.Unlock()
-
-	var errbuf [256]byte
-	mb5_query_get_lasterrormessage(c.mb5query, &errbuf[0], 256)
-	cErr := strings.Trim(string(errbuf[:]), "\x00")
-	return in, false, fmt.Errorf("query to MusicBrainz failed for %s (HTTP %d): %s", releaseid, lastCode, cErr)
-}
-defer mb5_metadata_delete(metadata)
+	defer mb5_metadata_delete(metadata)
 
 	release := mb5_metadata_get_release(metadata)
 	if release == nil {
@@ -127,7 +127,7 @@ defer mb5_metadata_delete(metadata)
 
 	out.Album = mb5String(mb5_release_get_title, unsafe.Pointer(release))
 	out.AlbumSort = out.Album + " [" + releaseid + "]"
-	
+
 	if disambig := mb5String(mb5_release_get_disambiguation, unsafe.Pointer(release)); disambig != "" {
 		out.Comment = disambig
 	}
@@ -177,7 +177,7 @@ defer mb5_metadata_delete(metadata)
 			if artist := c.fmtArtistCreditMB5(tac); artist != "" {
 				out.Artist = artist
 			}
-			
+
 			title := mb5String(mb5_recording_get_title, unsafe.Pointer(recording))
 			if title == "" {
 				title = mb5String(mb5_track_get_title, unsafe.Pointer(foundTrack))
@@ -224,7 +224,7 @@ defer mb5_metadata_delete(metadata)
 	if barcode := mb5String(mb5_release_get_barcode, unsafe.Pointer(release)); barcode != "" {
 		out.Custom["BARCODE"] = barcode
 	}
-	
+
 	liList := mb5_release_get_labelinfolist(release)
 	if liList != nil {
 		if label := c.fmtLabelsMB5(liList); label != "" {
@@ -242,7 +242,7 @@ defer mb5_metadata_delete(metadata)
 		}
 		out.Custom["MusicBrainz Album Release Country"] = countryCode
 	}
-	
+
 	if foundMedium != nil {
 		if format := mb5String(mb5_medium_get_format, unsafe.Pointer(foundMedium)); format != "" {
 			out.Custom["MEDIA"] = mediumFormat(format)
@@ -272,15 +272,15 @@ func (c *Curator) processRelations(recording mb5_recording, custom map[string]st
 	}
 
 	roles := map[string]string{
-		"composer":      "COMPOSER",
-		"lyricist":      "LYRICIST",
-		"producer":      "PRODUCER",
-		"engineer":      "ENGINEER",
-		"mixer":         "MIXER",
-		"remixer":       "REMIXER",
-		"writer":        "WRITER",
-		"arranger":      "ARRANGER",
-		"conductor":     "CONDUCTOR",
+		"composer":  "COMPOSER",
+		"lyricist":  "LYRICIST",
+		"producer":  "PRODUCER",
+		"engineer":  "ENGINEER",
+		"mixer":     "MIXER",
+		"remixer":   "REMIXER",
+		"writer":    "WRITER",
+		"arranger":  "ARRANGER",
+		"conductor": "CONDUCTOR",
 	}
 
 	credits := make(map[string][]string)
@@ -292,7 +292,7 @@ func (c *Curator) processRelations(recording mb5_recording, custom map[string]st
 		for j := 0; j < rlSize; j++ {
 			rel := mb5_relation_list_item(rl, j)
 			relType := mb5String(mb5_relation_get_type, unsafe.Pointer(rel))
-			
+
 			if role, ok := roles[relType]; ok {
 				artist := mb5_relation_get_artist(rel)
 				if artist != nil {
@@ -477,6 +477,10 @@ func (c *Curator) updateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 			log.Printf("MusicBrainz returned 503 (discid), retrying in 5 seconds (attempt %d/3)...", retryCount)
 			time.Sleep(5 * time.Second)
 			continue
+		}
+
+		if lastCode == 404 {
+			return in, true, nil
 		}
 
 		return in, false, fmt.Errorf("discid lookup failed for %s (HTTP %d)", discid, lastCode)

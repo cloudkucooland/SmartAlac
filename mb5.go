@@ -38,74 +38,74 @@ type mb5_isrc_list unsafe.Pointer
 type mb5_isrc unsafe.Pointer
 
 var (
-	mb5_query_new                    func(string, string, int) mb5_query
-	mb5_query_lookup_discid          func(mb5_query, mb5_discid) mb5_release_list
-	mb5_release_list_size            func(mb5_release_list) int
-	mb5_release_list_item            func(mb5_release_list, int) mb5_release
-	mb5_release_get_id               func(unsafe.Pointer, *byte, int)
-	mb5_query_query                  func(mb5_query, string, string, string, int, unsafe.Pointer, unsafe.Pointer) mb5_metadata
-	mb5_metadata_get_release         func(mb5_metadata) mb5_release
-	mb5_metadata_get_releaselist     func(mb5_metadata) mb5_release_list
-	mb5_query_get_lasterrormessage   func(mb5_query, *byte, int)
-	mb5_query_get_lastresult         func(mb5_query) mb5_tQueryResult
-	mb5_query_get_lasthttpcode       func(mb5_query) int
-	mb5_metadata_get_disc            func(mb5_metadata) mb5_disc
-	mb5_disc_get_id                  func(mb5_disc, *byte, int)
-	mb5_disc_get_releaselist         func(mb5_disc) mb5_release_list
-	mb5_release_get_title            func(unsafe.Pointer, *byte, int)
-	mb5_release_get_artistcredit     func(mb5_release) mb5_artist_credit
-	mb5_metadata_delete              func(mb5_metadata)
-	mb5_release_media_matching_discid func(mb5_release, string) mb5_media_list
-	mb5_medium_get_tracklist         func(mb5_medium) mb5_track_list
-	mb5_medium_list_item             func(mb5_media_list, int) mb5_medium
-	mb5_medium_list_size             func(mb5_media_list) int
-	mb5_medium_get_position          func(mb5_medium) int
-	mb5_medium_get_format            func(unsafe.Pointer, *byte, int)
-	mb5_disc_clone                   func(mb5_disc) mb5_disc
-	mb5_disc_delete                  func(mb5_disc)
-	mb5_release_list_clone           func(mb5_release_list) mb5_release_list
-	mb5_release_list_delete          func(mb5_release_list)
-	mb5_release_clone                func(mb5_release) mb5_release
-	mb5_release_delete               func(mb5_release)
-	mb5_medium_list_get_trackcount   func(mb5_media_list) int
-	mb5_metadata_clone               func(mb5_metadata) mb5_metadata
-	mb5_release_get_mediumlist       func(mb5_release) mb5_media_list
-	mb5_track_list_clone             func(mb5_track_list) mb5_track_list
-	mb5_track_list_delete            func(mb5_track_list)
-	mb5_track_list_item              func(mb5_track_list, int) mb5_track
-	mb5_track_get_title              func(unsafe.Pointer, *byte, int)
-	mb5_track_get_artistcredit       func(mb5_track) mb5_artist_credit
-	mb5_track_get_recording          func(mb5_track) mb5_recording
-	mb5_recording_get_id             func(unsafe.Pointer, *byte, int)
+	mb5_query_new                       func(string, string, int) mb5_query
+	mb5_query_lookup_discid             func(mb5_query, mb5_discid) mb5_release_list
+	mb5_release_list_size               func(mb5_release_list) int
+	mb5_release_list_item               func(mb5_release_list, int) mb5_release
+	mb5_release_get_id                  func(unsafe.Pointer, *byte, int)
+	mb5_query_query                     func(mb5_query, string, string, string, int, unsafe.Pointer, unsafe.Pointer) mb5_metadata
+	mb5_metadata_get_release            func(mb5_metadata) mb5_release
+	mb5_metadata_get_releaselist        func(mb5_metadata) mb5_release_list
+	mb5_query_get_lasterrormessage      func(mb5_query, *byte, int)
+	mb5_query_get_lastresult            func(mb5_query) mb5_tQueryResult
+	mb5_query_get_lasthttpcode          func(mb5_query) int
+	mb5_metadata_get_disc               func(mb5_metadata) mb5_disc
+	mb5_disc_get_id                     func(mb5_disc, *byte, int)
+	mb5_disc_get_releaselist            func(mb5_disc) mb5_release_list
+	mb5_release_get_title               func(unsafe.Pointer, *byte, int)
+	mb5_release_get_artistcredit        func(mb5_release) mb5_artist_credit
+	mb5_metadata_delete                 func(mb5_metadata)
+	mb5_release_media_matching_discid   func(mb5_release, string) mb5_media_list
+	mb5_medium_get_tracklist            func(mb5_medium) mb5_track_list
+	mb5_medium_list_item                func(mb5_media_list, int) mb5_medium
+	mb5_medium_list_size                func(mb5_media_list) int
+	mb5_medium_get_position             func(mb5_medium) int
+	mb5_medium_get_format               func(unsafe.Pointer, *byte, int)
+	mb5_disc_clone                      func(mb5_disc) mb5_disc
+	mb5_disc_delete                     func(mb5_disc)
+	mb5_release_list_clone              func(mb5_release_list) mb5_release_list
+	mb5_release_list_delete             func(mb5_release_list)
+	mb5_release_clone                   func(mb5_release) mb5_release
+	mb5_release_delete                  func(mb5_release)
+	mb5_medium_list_get_trackcount      func(mb5_media_list) int
+	mb5_metadata_clone                  func(mb5_metadata) mb5_metadata
+	mb5_release_get_mediumlist          func(mb5_release) mb5_media_list
+	mb5_track_list_clone                func(mb5_track_list) mb5_track_list
+	mb5_track_list_delete               func(mb5_track_list)
+	mb5_track_list_item                 func(mb5_track_list, int) mb5_track
+	mb5_track_get_title                 func(unsafe.Pointer, *byte, int)
+	mb5_track_get_artistcredit          func(mb5_track) mb5_artist_credit
+	mb5_track_get_recording             func(mb5_track) mb5_recording
+	mb5_recording_get_id                func(unsafe.Pointer, *byte, int)
 	mb5_artistcredit_get_namecreditlist func(mb5_artist_credit) mb5_namecreditlist
-	mb5_namecredit_list_get_count    func(mb5_namecreditlist) int
-	mb5_namecredit_list_item         func(mb5_namecreditlist, int) mb5_namecredit
-	mb5_namecredit_get_name          func(unsafe.Pointer, *byte, int)
-	mb5_namecredit_get_joinphrase    func(unsafe.Pointer, *byte, int)
-	mb5_track_list_get_count         func(mb5_track_list) int
-	mb5_track_get_position           func(mb5_track) int
-	mb5_recording_get_title          func(unsafe.Pointer, *byte, int)
-	mb5_recording_get_artistcredit   func(mb5_recording) mb5_artist_credit
-	mb5_namecredit_get_artist        func(mb5_namecredit) mb5_artist
-	mb5_artist_get_name              func(unsafe.Pointer, *byte, int)
-	mb5_artist_get_id                func(unsafe.Pointer, *byte, int)
-	mb5_artist_get_sortname          func(unsafe.Pointer, *byte, int)
+	mb5_namecredit_list_get_count       func(mb5_namecreditlist) int
+	mb5_namecredit_list_item            func(mb5_namecreditlist, int) mb5_namecredit
+	mb5_namecredit_get_name             func(unsafe.Pointer, *byte, int)
+	mb5_namecredit_get_joinphrase       func(unsafe.Pointer, *byte, int)
+	mb5_track_list_get_count            func(mb5_track_list) int
+	mb5_track_get_position              func(mb5_track) int
+	mb5_recording_get_title             func(unsafe.Pointer, *byte, int)
+	mb5_recording_get_artistcredit      func(mb5_recording) mb5_artist_credit
+	mb5_namecredit_get_artist           func(mb5_namecredit) mb5_artist
+	mb5_artist_get_name                 func(unsafe.Pointer, *byte, int)
+	mb5_artist_get_id                   func(unsafe.Pointer, *byte, int)
+	mb5_artist_get_sortname             func(unsafe.Pointer, *byte, int)
 
 	// Additional fields for better tagging
-	mb5_release_get_date             func(unsafe.Pointer, *byte, int)
-	mb5_release_get_barcode          func(unsafe.Pointer, *byte, int)
-	mb5_release_get_asin             func(unsafe.Pointer, *byte, int)
-	mb5_release_get_country          func(unsafe.Pointer, *byte, int)
-	mb5_release_get_disambiguation   func(unsafe.Pointer, *byte, int)
-	mb5_release_get_labelinfolist    func(mb5_release) mb5_label_info_list
-	mb5_labelinfo_list_item          func(mb5_label_info_list, int) mb5_label_info
-	mb5_labelinfo_list_size          func(mb5_label_info_list) int
-	mb5_labelinfo_get_label          func(mb5_label_info) mb5_label
-	mb5_labelinfo_get_catalognumber  func(unsafe.Pointer, *byte, int)
-	mb5_label_get_name               func(unsafe.Pointer, *byte, int)
-	mb5_release_get_releasegroup     func(mb5_release) mb5_release_group
-	mb5_releasegroup_get_id          func(unsafe.Pointer, *byte, int)
-	mb5_releasegroup_get_title       func(unsafe.Pointer, *byte, int)
+	mb5_release_get_date                  func(unsafe.Pointer, *byte, int)
+	mb5_release_get_barcode               func(unsafe.Pointer, *byte, int)
+	mb5_release_get_asin                  func(unsafe.Pointer, *byte, int)
+	mb5_release_get_country               func(unsafe.Pointer, *byte, int)
+	mb5_release_get_disambiguation        func(unsafe.Pointer, *byte, int)
+	mb5_release_get_labelinfolist         func(mb5_release) mb5_label_info_list
+	mb5_labelinfo_list_item               func(mb5_label_info_list, int) mb5_label_info
+	mb5_labelinfo_list_size               func(mb5_label_info_list) int
+	mb5_labelinfo_get_label               func(mb5_label_info) mb5_label
+	mb5_labelinfo_get_catalognumber       func(unsafe.Pointer, *byte, int)
+	mb5_label_get_name                    func(unsafe.Pointer, *byte, int)
+	mb5_release_get_releasegroup          func(mb5_release) mb5_release_group
+	mb5_releasegroup_get_id               func(unsafe.Pointer, *byte, int)
+	mb5_releasegroup_get_title            func(unsafe.Pointer, *byte, int)
 	mb5_releasegroup_get_firstreleasedate func(unsafe.Pointer, *byte, int)
 
 	// Relations and Works
