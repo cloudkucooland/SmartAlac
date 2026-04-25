@@ -40,7 +40,6 @@ type mb5_isrc unsafe.Pointer
 var (
 	mb5_query_new                    func(string, string, int) mb5_query
 	mb5_query_lookup_discid          func(mb5_query, mb5_discid) mb5_release_list
-	mb5_query_lookup_toc             func(mb5_query, string) mb5_release_list
 	mb5_release_list_size            func(mb5_release_list) int
 	mb5_release_list_item            func(mb5_release_list, int) mb5_release
 	mb5_release_get_id               func(unsafe.Pointer, *byte, int)
@@ -139,7 +138,6 @@ func (c *Curator) initMB5() error {
 
 	purego.RegisterLibFunc(&mb5_query_new, libmusicbrainz5, "mb5_query_new")
 	purego.RegisterLibFunc(&mb5_query_lookup_discid, libmusicbrainz5, "mb5_query_lookup_discid")
-	purego.RegisterLibFunc(&mb5_query_lookup_toc, libmusicbrainz5, "mb5_query_lookup_toc")
 	purego.RegisterLibFunc(&mb5_release_list_size, libmusicbrainz5, "mb5_release_list_size")
 	purego.RegisterLibFunc(&mb5_release_list_item, libmusicbrainz5, "mb5_release_list_item")
 	purego.RegisterLibFunc(&mb5_release_get_id, libmusicbrainz5, "mb5_release_get_id")

@@ -501,51 +501,6 @@ func (c *Curator) updateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 	return c.updateFromMB(in, releaseID)
 }
 
-func (c *Curator) updateFromTOC(in *mp4tag.MP4Tags, toc string) (*mp4tag.MP4Tags, bool, error) {
-	if c.mb5query == nil {
-		return in, false, fmt.Errorf("mb5 query not initialized")
-	}
-
-	c.rl.Take()
-
-	var relList mb5_release_list
-	var retryCount int
-	for {
-		relList = mb5_query_lookup_toc(c.mb5query, toc)
-		if relList != nil {
-			break
-		}
-
-		lastCode := mb5_query_get_lasthttpcode(c.mb5query)
-		if lastCode == 503 && retryCount < 3 {
-			retryCount++
-			log.Printf("MusicBrainz returned 503 (toc), retrying in 5 seconds (attempt %d/3)...", retryCount)
-			time.Sleep(5 * time.Second)
-			continue
-		}
-
-		return in, false, fmt.Errorf("toc lookup failed for %s (HTTP %d)", toc, lastCode)
-	}
-	defer mb5_release_list_delete(relList)
-
-	if mb5_release_list_size(relList) == 0 {
-		return in, false, fmt.Errorf("no releases found for toc %s", toc)
-	}
-
-	// For now, we take the first release and use its ID
-	rel := mb5_release_list_item(relList, 0)
-	var relBuf [256]byte
-	mb5_release_get_id(unsafe.Pointer(rel), &relBuf[0], 256)
-	releaseID := string(relBuf[:cStringLen(relBuf[:])])
-
-	if c.Config.Debug {
-		log.Printf("resolved toc %s to release %s\n", toc, releaseID)
-	}
-
-	// Now call the standard update with this release ID
-	return c.updateFromMB(in, releaseID)
-}
-
 func (c *Curator) acoustIDLookup(fingerprint string, duration int) (string, error) {
 	if c.Config.AcoustIDKey == "" {
 		return "", fmt.Errorf("AcoustID key not set")

@@ -175,8 +175,6 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 			newtags, changed, err = c.updateFromMB(tags, tid)
 		} else if discID != "" {
 			newtags, changed, err = c.updateFromDiscID(tags, discID)
-		} else if toc != "" {
-			newtags, changed, err = c.updateFromTOC(tags, toc)
 		}
 
 		renametags = newtags
