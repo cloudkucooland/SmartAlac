@@ -28,7 +28,6 @@ type Curator struct {
 	Config Config
 	Stats  Stats
 	rl     ratelimit.Limiter
-	mu     sync.Mutex
 
 	mb5query mb5_query
 }

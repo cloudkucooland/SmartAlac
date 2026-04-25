@@ -51,7 +51,7 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		}
 	}
 
-	recordingID, _ := in.Custom["MusicBrainz Track Id"]
+	recordingID := in.Custom["MusicBrainz Track Id"]
 
 	if in.TrackNumber < 1 {
 		log.Println("no track number, skipping")

@@ -64,9 +64,9 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 		log.Printf("%# v\n", pretty.Formatter(tags.Custom))
 	}
 	// if already tagged with MBIDs
-	tid, _ := tags.Custom["MusicBrainz Album Id"]
-	discID, _ := tags.Custom["MusicBrainz Disc Id"]
-	toc, _ := tags.Custom["TOC"]
+	tid := tags.Custom["MusicBrainz Album Id"]
+	discID := tags.Custom["MusicBrainz Disc Id"]
+	toc := tags.Custom["TOC"]
 
 	if tid == "" {
 		// Try to extract MBID or DiscID from directory name: /path/to/Album [MBID]/...
@@ -221,7 +221,7 @@ func showDiffs(in, out *mp4tag.MP4Tags) int {
 
 func (c *Curator) rename(fullpath string, tags *mp4tag.MP4Tags) error {
 	if tags.AlbumArtist == "" {
-		return errors.New("Artist not set, not moving")
+		return errors.New("albumArtist not set, not moving")
 	}
 	if tags.AlbumSort == "" {
 		return errors.New("AlbumSort not set, not moving")
