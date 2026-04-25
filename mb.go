@@ -480,7 +480,7 @@ func (c *Curator) updateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 		}
 
 		if lastCode == 404 {
-			return in, true, nil
+			return in, false, nil
 		}
 
 		return in, false, fmt.Errorf("discid lookup failed for %s (HTTP %d)", discid, lastCode)
@@ -489,12 +489,12 @@ func (c *Curator) updateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 
 	disc := mb5_metadata_get_disc(metadata)
 	if disc == nil {
-		return in, false, fmt.Errorf("no disc in metadata for %s", discid)
+		return in, false, nil
 	}
 
 	rl := mb5_disc_get_releaselist(disc)
 	if rl == nil || mb5_release_list_size(rl) == 0 {
-		return in, false, fmt.Errorf("no releases found for discid %s", discid)
+		return in, false, nil
 	}
 
 	// For now, we take the first release and use its ID
@@ -508,7 +508,14 @@ func (c *Curator) updateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 	}
 
 	// Now call the standard update with this release ID
-	return c.updateFromMB(in, releaseID)
+	out, changed, err := c.updateFromMB(in, releaseID)
+	if err == nil && out != nil {
+		if out.Custom == nil {
+			out.Custom = make(map[string]string)
+		}
+		out.Custom["MusicBrainz Disc Id"] = discid
+	}
+	return out, changed, err
 }
 
 func (c *Curator) acoustIDLookup(fingerprint string, duration int) (string, error) {
@@ -554,5 +561,5 @@ func (c *Curator) acoustIDLookup(fingerprint string, duration int) (string, erro
 		}
 	}
 
-	return "", fmt.Errorf("no high-confidence matches found in AcoustID")
+	return "", nil
 }
