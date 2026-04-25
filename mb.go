@@ -463,11 +463,11 @@ func (c *Curator) updateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 
 	c.rl.Take()
 
-	var relList mb5_release_list
+	var metadata mb5_metadata
 	var retryCount int
 	for {
-		relList = mb5_query_lookup_discid(c.mb5query, mb5_discid(discid))
-		if relList != nil {
+		metadata = mb5_query_query(c.mb5query, "discid", discid, "", 0, nil, nil)
+		if metadata != nil {
 			break
 		}
 
@@ -481,17 +481,23 @@ func (c *Curator) updateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 
 		return in, false, fmt.Errorf("discid lookup failed for %s (HTTP %d)", discid, lastCode)
 	}
-	defer mb5_release_list_delete(relList)
+	defer mb5_metadata_delete(metadata)
 
-	if mb5_release_list_size(relList) == 0 {
+	disc := mb5_metadata_get_disc(metadata)
+	if disc == nil {
+		return in, false, fmt.Errorf("no disc in metadata for %s", discid)
+	}
+
+	rl := mb5_disc_get_releaselist(disc)
+	if rl == nil || mb5_release_list_size(rl) == 0 {
 		return in, false, fmt.Errorf("no releases found for discid %s", discid)
 	}
 
 	// For now, we take the first release and use its ID
-	rel := mb5_release_list_item(relList, 0)
-	var relBuf [256]byte
-	mb5_release_get_id(unsafe.Pointer(rel), &relBuf[0], 256)
-	releaseID := string(relBuf[:cStringLen(relBuf[:])])
+	rel := mb5_release_list_item(rl, 0)
+	var relBuf [37]byte
+	mb5_release_get_id(unsafe.Pointer(rel), &relBuf[0], 37)
+	releaseID := strings.Trim(string(relBuf[:]), "\x00")
 
 	if c.Config.Debug {
 		log.Printf("resolved discid %s to release %s\n", discid, releaseID)
