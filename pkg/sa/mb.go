@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/Sorrow446/go-mp4tag"
+	"github.com/cloudkucooland/SmartAlac/pkg/mb5"
 	"github.com/kr/pretty"
 )
 
@@ -70,7 +71,7 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 	c.Stats.mu.Unlock()
 	c.rl.Take()
 
-	var metadata mb5_metadata
+	var metadata mb5.Metadata
 	var retryCount int
 	for {
 		// Prepare query parameters for explicit "inc" request
@@ -83,12 +84,12 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		values[0] = &v1[0]
 
 		// Query libmusicbrainz5
-		metadata = mb5_query_query(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params), unsafe.Pointer(&values))
+		metadata = mb5.QueryQuery(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params), unsafe.Pointer(&values))
 		if metadata != nil {
 			break
 		}
 
-		lastCode := mb5_query_get_lasthttpcode(c.mb5query)
+		lastCode := mb5.QueryGetLasthttpcode(c.mb5query)
 		if lastCode == 503 && retryCount < 3 {
 			retryCount++
 			log.Printf("MusicBrainz returned 503, retrying in 5 seconds (attempt %d/3)...", retryCount)
@@ -101,13 +102,13 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		c.Stats.mu.Unlock()
 
 		var errbuf [256]byte
-		mb5_query_get_lasterrormessage(c.mb5query, &errbuf[0], 256)
+		mb5.QueryGetLasterrormessage(c.mb5query, &errbuf[0], 256)
 		cErr := strings.Trim(string(errbuf[:]), "\x00")
 		return in, false, fmt.Errorf("query to MusicBrainz failed for %s (HTTP %d): %s", releaseid, lastCode, cErr)
 	}
-	defer mb5_metadata_delete(metadata)
+	defer mb5.MetadataDelete(metadata)
 
-	release := mb5_metadata_get_release(metadata)
+	release := mb5.MetadataGetRelease(metadata)
 	if release == nil {
 		return in, false, fmt.Errorf("no release in metadata for %s", releaseid)
 	}
@@ -125,14 +126,14 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		out.Custom = newCustom
 	}
 
-	out.Album = mb5String(mb5_release_get_title, unsafe.Pointer(release))
+	out.Album = mb5.String(mb5.ReleaseGetTitle, unsafe.Pointer(release))
 	out.AlbumSort = out.Album + " [" + releaseid + "]"
 
-	if disambig := mb5String(mb5_release_get_disambiguation, unsafe.Pointer(release)); disambig != "" {
+	if disambig := mb5.String(mb5.ReleaseGetDisambiguation, unsafe.Pointer(release)); disambig != "" {
 		out.Comment = disambig
 	}
 
-	ac := mb5_release_get_artistcredit(release)
+	ac := mb5.ReleaseGetArtistcredit(release)
 	if aa := c.fmtArtistCreditMB5(ac); aa != "" {
 		out.AlbumArtist = aa
 	}
@@ -140,20 +141,20 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		out.AlbumArtistSort = asa
 	}
 
-	mediumList := mb5_release_get_mediumlist(release)
-	out.DiscTotal = int16(mb5_medium_list_size(mediumList))
+	mediumList := mb5.ReleaseGetMediumlist(release)
+	out.DiscTotal = int16(mb5.MediumListSize(mediumList))
 
-	var foundTrack mb5_track
-	var foundMedium mb5_medium
+	var foundTrack mb5.Track
+	var foundMedium mb5.Medium
 	for i := 0; i < int(out.DiscTotal); i++ {
-		m := mb5_medium_list_item(mediumList, i)
-		if mb5_medium_get_position(m) == int(in.DiscNumber) {
+		m := mb5.MediumListItem(mediumList, i)
+		if mb5.MediumGetPosition(m) == int(in.DiscNumber) {
 			foundMedium = m
-			tl := mb5_medium_get_tracklist(m)
-			out.TrackTotal = int16(mb5_track_list_get_count(tl))
+			tl := mb5.MediumGetTracklist(m)
+			out.TrackTotal = int16(mb5.TrackListGetCount(tl))
 			for j := 0; j < int(out.TrackTotal); j++ {
-				t := mb5_track_list_item(tl, j)
-				if mb5_track_get_position(t) == int(in.TrackNumber) {
+				t := mb5.TrackListItem(tl, j)
+				if mb5.TrackGetPosition(t) == int(in.TrackNumber) {
 					foundTrack = t
 					break
 				}
@@ -163,24 +164,24 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 	}
 
 	if foundTrack != nil {
-		recording := mb5_track_get_recording(foundTrack)
+		recording := mb5.TrackGetRecording(foundTrack)
 		if recording != nil {
 			if recordingID == "" {
 				var buf [37]byte
-				mb5_recording_get_id(unsafe.Pointer(recording), (*byte)(unsafe.Pointer(&buf[0])), 37)
+				mb5.RecordingGetID(unsafe.Pointer(recording), (*byte)(unsafe.Pointer(&buf[0])), 37)
 				recordingID = strings.Trim(string(buf[:]), "\x00")
 			}
-			tac := mb5_recording_get_artistcredit(recording)
+			tac := mb5.RecordingGetArtistcredit(recording)
 			if tac == nil {
-				tac = mb5_track_get_artistcredit(foundTrack)
+				tac = mb5.TrackGetArtistcredit(foundTrack)
 			}
 			if artist := c.fmtArtistCreditMB5(tac); artist != "" {
 				out.Artist = artist
 			}
 
-			title := mb5String(mb5_recording_get_title, unsafe.Pointer(recording))
+			title := mb5.String(mb5.RecordingGetTitle, unsafe.Pointer(recording))
 			if title == "" {
-				title = mb5String(mb5_track_get_title, unsafe.Pointer(foundTrack))
+				title = mb5.String(mb5.TrackGetTitle, unsafe.Pointer(foundTrack))
 			}
 			if title != "" {
 				out.Title = title
@@ -200,32 +201,32 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		}
 	}
 
-	rg := mb5_release_get_releasegroup(release)
+	rg := mb5.ReleaseGetReleasegroup(release)
 	if rg != nil {
-		origDate := mb5String(mb5_releasegroup_get_firstreleasedate, unsafe.Pointer(rg))
+		origDate := mb5.String(mb5.ReleasegroupGetFirstreleasedate, unsafe.Pointer(rg))
 		if len(origDate) >= 4 {
 			out.Custom["ORIGINALDATE"] = origDate
 			out.Custom["ORIGINALYEAR"] = origDate[:4]
 			fmt.Sscanf(origDate[:4], "%d", &out.Year)
 		}
-		if rgid := mb5String(mb5_releasegroup_get_id, unsafe.Pointer(rg)); rgid != "" {
+		if rgid := mb5.String(mb5.ReleasegroupGetID, unsafe.Pointer(rg)); rgid != "" {
 			out.Custom["MusicBrainz Release Group Id"] = rgid
 		}
 		// Album Type is commented out in mb5.go
 	}
 
-	if date := mb5String(mb5_release_get_date, unsafe.Pointer(release)); date != "" {
+	if date := mb5.String(mb5.ReleaseGetDate, unsafe.Pointer(release)); date != "" {
 		out.Date = date
 	}
 
-	if asin := mb5String(mb5_release_get_asin, unsafe.Pointer(release)); asin != "" {
+	if asin := mb5.String(mb5.ReleaseGetAsin, unsafe.Pointer(release)); asin != "" {
 		out.Custom["ASIN"] = asin
 	}
-	if barcode := mb5String(mb5_release_get_barcode, unsafe.Pointer(release)); barcode != "" {
+	if barcode := mb5.String(mb5.ReleaseGetBarcode, unsafe.Pointer(release)); barcode != "" {
 		out.Custom["BARCODE"] = barcode
 	}
 
-	liList := mb5_release_get_labelinfolist(release)
+	liList := mb5.ReleaseGetLabelinfolist(release)
 	if liList != nil {
 		if label := c.fmtLabelsMB5(liList); label != "" {
 			out.Custom["LABEL"] = label
@@ -235,7 +236,7 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		}
 	}
 
-	countryCode := mb5String(mb5_release_get_country, unsafe.Pointer(release))
+	countryCode := mb5.String(mb5.ReleaseGetCountry, unsafe.Pointer(release))
 	if countryCode != "" {
 		if countryName := resolveCountry(countryCode); countryName != "" {
 			out.Custom["Country"] = countryName
@@ -244,7 +245,7 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 	}
 
 	if foundMedium != nil {
-		if format := mb5String(mb5_medium_get_format, unsafe.Pointer(foundMedium)); format != "" {
+		if format := mb5.String(mb5.MediumGetFormat, unsafe.Pointer(foundMedium)); format != "" {
 			out.Custom["MEDIA"] = mediumFormat(format)
 		}
 	}
@@ -265,8 +266,8 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 	return &out, true, nil
 }
 
-func (c *Curator) processRelations(recording mb5_recording, custom map[string]string, out *mp4tag.MP4Tags) {
-	rll := mb5_recording_get_relationlistlist(recording)
+func (c *Curator) processRelations(recording mb5.Recording, custom map[string]string, out *mp4tag.MP4Tags) {
+	rll := mb5.RecordingGetRelationlistlist(recording)
 	if rll == nil {
 		return
 	}
@@ -285,18 +286,18 @@ func (c *Curator) processRelations(recording mb5_recording, custom map[string]st
 
 	credits := make(map[string][]string)
 
-	rllSize := mb5_relationlist_list_size(rll)
+	rllSize := mb5.RelationlistListSize(rll)
 	for i := 0; i < rllSize; i++ {
-		rl := mb5_relationlist_list_item(rll, i)
-		rlSize := mb5_relation_list_size(rl)
+		rl := mb5.RelationlistListItem(rll, i)
+		rlSize := mb5.RelationListSize(rl)
 		for j := 0; j < rlSize; j++ {
-			rel := mb5_relation_list_item(rl, j)
-			relType := mb5String(mb5_relation_get_type, unsafe.Pointer(rel))
+			rel := mb5.RelationListItem(rl, j)
+			relType := mb5.String(mb5.RelationGetType, unsafe.Pointer(rel))
 
 			if role, ok := roles[relType]; ok {
-				artist := mb5_relation_get_artist(rel)
+				artist := mb5.RelationGetArtist(rel)
 				if artist != nil {
-					name := mb5String(mb5_artist_get_name, unsafe.Pointer(artist))
+					name := mb5.String(mb5.ArtistGetName, unsafe.Pointer(artist))
 					if name != "" {
 						credits[role] = append(credits[role], name)
 					}
@@ -304,12 +305,12 @@ func (c *Curator) processRelations(recording mb5_recording, custom map[string]st
 			}
 
 			if relType == "performance" {
-				work := mb5_relation_get_work(rel)
+				work := mb5.RelationGetWork(rel)
 				if work != nil {
-					if wid := mb5String(mb5_work_get_id, unsafe.Pointer(work)); wid != "" {
+					if wid := mb5.String(mb5.WorkGetID, unsafe.Pointer(work)); wid != "" {
 						custom["MusicBrainz Work Id"] = wid
 					}
-					if wtitle := mb5String(mb5_work_get_title, unsafe.Pointer(work)); wtitle != "" {
+					if wtitle := mb5.String(mb5.WorkGetTitle, unsafe.Pointer(work)); wtitle != "" {
 						custom["WORK"] = wtitle
 					}
 				}
@@ -331,16 +332,16 @@ func (c *Curator) processRelations(recording mb5_recording, custom map[string]st
 	}
 }
 
-func (c *Curator) fmtISRCsMB5(recording mb5_recording) string {
-	isrcList := mb5_recording_get_isrclist(recording)
+func (c *Curator) fmtISRCsMB5(recording mb5.Recording) string {
+	isrcList := mb5.RecordingGetISRCList(recording)
 	if isrcList == nil {
 		return ""
 	}
-	size := mb5_isrc_list_size(isrcList)
+	size := mb5.ISRCListSize(isrcList)
 	var isrcs []string
 	for i := 0; i < size; i++ {
-		isrc := mb5_isrc_list_item(isrcList, i)
-		id := mb5String(mb5_isrc_get_id, unsafe.Pointer(isrc))
+		isrc := mb5.ISRCListItem(isrcList, i)
+		id := mb5.String(mb5.ISRCGetID, unsafe.Pointer(isrc))
 		if id != "" {
 			isrcs = append(isrcs, id)
 		}
@@ -348,54 +349,54 @@ func (c *Curator) fmtISRCsMB5(recording mb5_recording) string {
 	return strings.Join(isrcs, ", ")
 }
 
-func (c *Curator) fmtArtistCreditMB5(ac mb5_artist_credit) string {
+func (c *Curator) fmtArtistCreditMB5(ac mb5.ArtistCredit) string {
 	if ac == nil {
 		return ""
 	}
-	ncl := mb5_artistcredit_get_namecreditlist(ac)
-	count := mb5_namecredit_list_get_count(ncl)
+	ncl := mb5.ArtistcreditGetNamecreditlist(ac)
+	count := mb5.NamecreditListGetCount(ncl)
 	var s string
 	for i := 0; i < count; i++ {
-		nc := mb5_namecredit_list_item(ncl, i)
-		name := mb5String(mb5_namecredit_get_name, unsafe.Pointer(nc))
+		nc := mb5.NamecreditListItem(ncl, i)
+		name := mb5.String(mb5.NamecreditGetName, unsafe.Pointer(nc))
 		if name == "" {
-			artist := mb5_namecredit_get_artist(nc)
-			name = mb5String(mb5_artist_get_name, unsafe.Pointer(artist))
+			artist := mb5.NamecreditGetArtist(nc)
+			name = mb5.String(mb5.ArtistGetName, unsafe.Pointer(artist))
 		}
-		join := mb5String(mb5_namecredit_get_joinphrase, unsafe.Pointer(nc))
+		join := mb5.String(mb5.NamecreditGetJoinphrase, unsafe.Pointer(nc))
 		s += name + join
 	}
 	return s
 }
 
-func (c *Curator) fmtArtistCreditSortMB5(ac mb5_artist_credit) string {
+func (c *Curator) fmtArtistCreditSortMB5(ac mb5.ArtistCredit) string {
 	if ac == nil {
 		return ""
 	}
-	ncl := mb5_artistcredit_get_namecreditlist(ac)
-	count := mb5_namecredit_list_get_count(ncl)
+	ncl := mb5.ArtistcreditGetNamecreditlist(ac)
+	count := mb5.NamecreditListGetCount(ncl)
 	var s string
 	for i := 0; i < count; i++ {
-		nc := mb5_namecredit_list_item(ncl, i)
-		artist := mb5_namecredit_get_artist(nc)
-		name := mb5String(mb5_artist_get_sortname, unsafe.Pointer(artist))
-		join := mb5String(mb5_namecredit_get_joinphrase, unsafe.Pointer(nc))
+		nc := mb5.NamecreditListItem(ncl, i)
+		artist := mb5.NamecreditGetArtist(nc)
+		name := mb5.String(mb5.ArtistGetSortname, unsafe.Pointer(artist))
+		join := mb5.String(mb5.NamecreditGetJoinphrase, unsafe.Pointer(nc))
 		s += name + join
 	}
 	return s
 }
 
-func (c *Curator) fmtArtistListMB5(ac mb5_artist_credit) string {
+func (c *Curator) fmtArtistListMB5(ac mb5.ArtistCredit) string {
 	if ac == nil {
 		return ""
 	}
-	ncl := mb5_artistcredit_get_namecreditlist(ac)
-	count := mb5_namecredit_list_get_count(ncl)
+	ncl := mb5.ArtistcreditGetNamecreditlist(ac)
+	count := mb5.NamecreditListGetCount(ncl)
 	var s string
 	for i := 0; i < count; i++ {
-		nc := mb5_namecredit_list_item(ncl, i)
-		artist := mb5_namecredit_get_artist(nc)
-		name := mb5String(mb5_artist_get_name, unsafe.Pointer(artist))
+		nc := mb5.NamecreditListItem(ncl, i)
+		artist := mb5.NamecreditGetArtist(nc)
+		name := mb5.String(mb5.ArtistGetName, unsafe.Pointer(artist))
 		if i > 0 {
 			s += ", "
 		}
@@ -404,17 +405,17 @@ func (c *Curator) fmtArtistListMB5(ac mb5_artist_credit) string {
 	return s
 }
 
-func (c *Curator) joinArtistIDsMB5(ac mb5_artist_credit) string {
+func (c *Curator) joinArtistIDsMB5(ac mb5.ArtistCredit) string {
 	if ac == nil {
 		return ""
 	}
-	ncl := mb5_artistcredit_get_namecreditlist(ac)
-	count := mb5_namecredit_list_get_count(ncl)
+	ncl := mb5.ArtistcreditGetNamecreditlist(ac)
+	count := mb5.NamecreditListGetCount(ncl)
 	var s string
 	for i := 0; i < count; i++ {
-		nc := mb5_namecredit_list_item(ncl, i)
-		artist := mb5_namecredit_get_artist(nc)
-		id := mb5String(mb5_artist_get_id, unsafe.Pointer(artist))
+		nc := mb5.NamecreditListItem(ncl, i)
+		artist := mb5.NamecreditGetArtist(nc)
+		id := mb5.String(mb5.ArtistGetID, unsafe.Pointer(artist))
 		if i > 0 {
 			s += ","
 		}
@@ -423,15 +424,15 @@ func (c *Curator) joinArtistIDsMB5(ac mb5_artist_credit) string {
 	return s
 }
 
-func (c *Curator) fmtLabelsMB5(liList mb5_label_info_list) string {
-	count := mb5_labelinfo_list_size(liList)
+func (c *Curator) fmtLabelsMB5(liList mb5.LabelInfoList) string {
+	count := mb5.LabelinfoListSize(liList)
 	var labels []string
 	seen := make(map[string]bool)
 	for i := 0; i < count; i++ {
-		li := mb5_labelinfo_list_item(liList, i)
-		label := mb5_labelinfo_get_label(li)
+		li := mb5.LabelinfoListItem(liList, i)
+		label := mb5.LabelinfoGetLabel(li)
 		if label != nil {
-			name := mb5String(mb5_label_get_name, unsafe.Pointer(label))
+			name := mb5.String(mb5.LabelGetName, unsafe.Pointer(label))
 			if name != "" && !seen[name] {
 				labels = append(labels, name)
 				seen[name] = true
@@ -441,13 +442,13 @@ func (c *Curator) fmtLabelsMB5(liList mb5_label_info_list) string {
 	return strings.Join(labels, "; ")
 }
 
-func (c *Curator) fmtCatalogNumbersMB5(liList mb5_label_info_list) string {
-	count := mb5_labelinfo_list_size(liList)
+func (c *Curator) fmtCatalogNumbersMB5(liList mb5.LabelInfoList) string {
+	count := mb5.LabelinfoListSize(liList)
 	var cats []string
 	seen := make(map[string]bool)
 	for i := 0; i < count; i++ {
-		li := mb5_labelinfo_list_item(liList, i)
-		cat := mb5String(mb5_labelinfo_get_catalognumber, unsafe.Pointer(li))
+		li := mb5.LabelinfoListItem(liList, i)
+		cat := mb5.String(mb5.LabelinfoGetCatalognumber, unsafe.Pointer(li))
 		if cat != "" && !seen[cat] {
 			cats = append(cats, cat)
 			seen[cat] = true
@@ -463,15 +464,15 @@ func (c *Curator) updateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 
 	c.rl.Take()
 
-	var metadata mb5_metadata
+	var metadata mb5.Metadata
 	var retryCount int
 	for {
-		metadata = mb5_query_query(c.mb5query, "discid", discid, "", 0, nil, nil)
+		metadata = mb5.QueryQuery(c.mb5query, "discid", discid, "", 0, nil, nil)
 		if metadata != nil {
 			break
 		}
 
-		lastCode := mb5_query_get_lasthttpcode(c.mb5query)
+		lastCode := mb5.QueryGetLasthttpcode(c.mb5query)
 		if lastCode == 503 && retryCount < 3 {
 			retryCount++
 			log.Printf("MusicBrainz returned 503 (discid), retrying in 5 seconds (attempt %d/3)...", retryCount)
@@ -485,22 +486,22 @@ func (c *Curator) updateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 
 		return in, false, fmt.Errorf("discid lookup failed for %s (HTTP %d)", discid, lastCode)
 	}
-	defer mb5_metadata_delete(metadata)
+	defer mb5.MetadataDelete(metadata)
 
-	disc := mb5_metadata_get_disc(metadata)
+	disc := mb5.MetadataGetDisc(metadata)
 	if disc == nil {
 		return in, false, nil
 	}
 
-	rl := mb5_disc_get_releaselist(disc)
-	if rl == nil || mb5_release_list_size(rl) == 0 {
+	rl := mb5.DiscGetReleaselist(disc)
+	if rl == nil || mb5.ReleaseListSize(rl) == 0 {
 		return in, false, nil
 	}
 
 	// For now, we take the first release and use its ID
-	rel := mb5_release_list_item(rl, 0)
+	rel := mb5.ReleaseListItem(rl, 0)
 	var relBuf [37]byte
-	mb5_release_get_id(unsafe.Pointer(rel), &relBuf[0], 37)
+	mb5.ReleaseGetID(unsafe.Pointer(rel), (*byte)(unsafe.Pointer(&relBuf[0])), 37)
 	releaseID := strings.Trim(string(relBuf[:]), "\x00")
 
 	if c.Config.Debug {

@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/cloudkucooland/SmartAlac"
+	"github.com/cloudkucooland/SmartAlac/pkg/sa"
 	"github.com/urfave/cli/v3"
 )
 

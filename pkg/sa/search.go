@@ -3,6 +3,7 @@ package sa
 import (
 	"bufio"
 	"fmt"
+	"github.com/cloudkucooland/SmartAlac/pkg/mb5"
 	"os"
 	"strconv"
 	"strings"
@@ -32,37 +33,37 @@ func (c *Curator) SearchMB(artist, album string) ([]MBRelease, error) {
 	}
 
 	c.rl.Take()
-	metadata := mb5_query_query(c.mb5query, "release", "", searchQuery, 0, nil, nil)
+	metadata := mb5.QueryQuery(c.mb5query, "release", "", searchQuery, 0, nil, nil)
 	if metadata == nil {
 		return nil, fmt.Errorf("search failed")
 	}
-	defer mb5_metadata_delete(metadata)
+	defer mb5.MetadataDelete(metadata)
 
-	releaseList := mb5_metadata_get_releaselist(metadata)
+	releaseList := mb5.MetadataGetReleaselist(metadata)
 	if releaseList == nil {
 		return nil, nil
 	}
 
-	count := mb5_release_list_size(releaseList)
+	count := mb5.ReleaseListSize(releaseList)
 	results := make([]MBRelease, 0, count)
 
 	for i := 0; i < count; i++ {
-		rel := mb5_release_list_item(releaseList, i)
+		rel := mb5.ReleaseListItem(releaseList, i)
 		var r MBRelease
 
-		r.ID = mb5String(mb5_release_get_id, unsafe.Pointer(rel))
-		r.Title = mb5String(mb5_release_get_title, unsafe.Pointer(rel))
-		r.Date = mb5String(mb5_release_get_date, unsafe.Pointer(rel))
-		r.Country = mb5String(mb5_release_get_country, unsafe.Pointer(rel))
-		r.Barcode = mb5String(mb5_release_get_barcode, unsafe.Pointer(rel))
-		r.Disambiguation = mb5String(mb5_release_get_disambiguation, unsafe.Pointer(rel))
+		r.ID = mb5.String(mb5.ReleaseGetID, unsafe.Pointer(rel))
+		r.Title = mb5.String(mb5.ReleaseGetTitle, unsafe.Pointer(rel))
+		r.Date = mb5.String(mb5.ReleaseGetDate, unsafe.Pointer(rel))
+		r.Country = mb5.String(mb5.ReleaseGetCountry, unsafe.Pointer(rel))
+		r.Barcode = mb5.String(mb5.ReleaseGetBarcode, unsafe.Pointer(rel))
+		r.Disambiguation = mb5.String(mb5.ReleaseGetDisambiguation, unsafe.Pointer(rel))
 
-		ac := mb5_release_get_artistcredit(rel)
+		ac := mb5.ReleaseGetArtistcredit(rel)
 		r.Artist = c.fmtArtistCreditMB5(ac)
 
-		ml := mb5_release_get_mediumlist(rel)
+		ml := mb5.ReleaseGetMediumlist(rel)
 		if ml != nil {
-			r.TrackCount = mb5_medium_list_get_trackcount(ml)
+			r.TrackCount = mb5.MediumListGetTrackcount(ml)
 		}
 
 		results = append(results, r)

@@ -4,6 +4,7 @@ import (
 	"log"
 	"sync"
 
+	"github.com/cloudkucooland/SmartAlac/pkg/mb5"
 	"go.uber.org/ratelimit"
 )
 
@@ -29,7 +30,7 @@ type Curator struct {
 	Stats  Stats
 	rl     ratelimit.Limiter
 
-	mb5query mb5_query
+	mb5query mb5.Query
 }
 
 func NewCurator(cfg Config) *Curator {
@@ -48,7 +49,7 @@ func NewCurator(cfg Config) *Curator {
 	if err := c.initMB5(); err != nil {
 		log.Printf("warning: mb5 init failed: %v", err)
 	} else {
-		c.mb5query = mb5_query_new("SmartAlac", "musicbrainz.org", 0)
+		c.mb5query = mb5.QueryNew("SmartAlac", "musicbrainz.org", 0)
 	}
 
 	return c
