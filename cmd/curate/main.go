@@ -55,15 +55,21 @@ func main() {
 				Aliases: []string{"O"},
 				Usage:   "overwrite files if duplicates exist",
 			},
+			&cli.StringFlag{
+				Name:    "acoustid-key",
+				Usage:   "AcoustID API key for fingerprinting fallback",
+				EnvVars: []string{"ACOUSTID_KEY"},
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			cfg := sa.Config{
-				DryRun:    cmd.Bool("dryrun"),
-				Debug:     cmd.Bool("debug"),
-				SkipMB:    cmd.Bool("skipmb"),
-				SkipMove:  cmd.Bool("skipmove"),
-				Overwrite: cmd.Bool("overwrite"),
-				FinalDir:  cmd.String("finaldir"),
+				DryRun:      cmd.Bool("dryrun"),
+				Debug:       cmd.Bool("debug"),
+				SkipMB:      cmd.Bool("skipmb"),
+				SkipMove:    cmd.Bool("skipmove"),
+				Overwrite:   cmd.Bool("overwrite"),
+				FinalDir:    cmd.String("finaldir"),
+				AcoustIDKey: cmd.String("acoustid-key"),
 			}
 
 			curator := sa.NewCurator(cfg)
