@@ -31,6 +31,8 @@ type model struct {
 	list        list.Model
 	error       error
 	status      string
+	width       int
+	height      int
 }
 
 func NewModel(c *sa.Curator, dir string) model {
@@ -82,6 +84,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			case "enter":
 				m.state = stateSearch
+				m.error = nil
 				return m, func() tea.Msg {
 					res, err := m.curator.SearchMB(m.artistInput.Value(), m.albumInput.Value())
 					if err != nil {
@@ -127,7 +130,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for i, r := range m.results {
 			items[i] = item{r}
 		}
-		m.list = list.New(items, list.NewDefaultDelegate(), 0, 0)
+		m.list = list.New(items, list.NewDefaultDelegate(), m.width, m.height-4)
 		m.list.Title = "Select MusicBrainz Release"
 		m.state = stateResults
 		return m, nil
@@ -142,6 +145,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
 		if m.state == stateResults {
 			m.list.SetSize(msg.Width, msg.Height-4)
 		}

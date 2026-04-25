@@ -37,20 +37,27 @@ func (c *Curator) SearchMB(artist, album string) ([]MBRelease, error) {
 
 	c.rl.Take()
 
-	// Prepare query parameters for explicit "inc" request to get labels and media
+	// Prepare query parameters: For search, use "query" parameter
 	var params [1]*byte
-	p1 := []byte("inc")
+	p1 := []byte("query")
 	params[0] = &p1[0]
 
 	var values [1]*byte
-	v1 := []byte("artists labels release-groups artist-credits")
+	v1 := []byte(searchQuery)
 	values[0] = &v1[0]
 
-	metadata := mb5.QueryQuery(c.mb5query, "release", "", searchQuery, 1, unsafe.Pointer(&params), unsafe.Pointer(&values))
+	// Call QueryQuery with entity="release", id="", resource="", num_params=1
+	metadata := mb5.QueryQuery(c.mb5query, "release", "", "", 1, unsafe.Pointer(&params), unsafe.Pointer(&values))
 	if metadata == nil {
-		return nil, fmt.Errorf("search failed")
+		return nil, fmt.Errorf("search failed (metadata nil)")
 	}
 	defer mb5.MetadataDelete(metadata)
+
+	if result := mb5.QueryGetLastresult(c.mb5query); result != 0 {
+		var errbuf [256]byte
+		mb5.QueryGetLasterrormessage(c.mb5query, &errbuf[0], 256)
+		return nil, fmt.Errorf("search error: %s", strings.Trim(string(errbuf[:]), "\x00"))
+	}
 
 	releaseList := mb5.MetadataGetReleaselist(metadata)
 	if releaseList == nil {
