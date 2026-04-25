@@ -45,6 +45,7 @@ var (
 	mb5_release_get_id               func(unsafe.Pointer, *byte, int)
 	mb5_query_query                  func(mb5_query, string, string, string, int, unsafe.Pointer, unsafe.Pointer) mb5_metadata
 	mb5_metadata_get_release         func(mb5_metadata) mb5_release
+	mb5_metadata_get_releaselist     func(mb5_metadata) mb5_release_list
 	mb5_query_get_lasterrormessage   func(mb5_query, *byte, int)
 	mb5_query_get_lastresult         func(mb5_query) mb5_tQueryResult
 	mb5_query_get_lasthttpcode       func(mb5_query) int
@@ -142,6 +143,7 @@ func (c *Curator) initMB5() error {
 	purego.RegisterLibFunc(&mb5_release_get_id, libmusicbrainz5, "mb5_release_get_id")
 	purego.RegisterLibFunc(&mb5_query_query, libmusicbrainz5, "mb5_query_query")
 	purego.RegisterLibFunc(&mb5_metadata_get_release, libmusicbrainz5, "mb5_metadata_get_release")
+	purego.RegisterLibFunc(&mb5_metadata_get_releaselist, libmusicbrainz5, "mb5_metadata_get_releaselist")
 	purego.RegisterLibFunc(&mb5_query_get_lasterrormessage, libmusicbrainz5, "mb5_query_get_lasterrormessage")
 	purego.RegisterLibFunc(&mb5_query_get_lastresult, libmusicbrainz5, "mb5_query_get_lastresult")
 	purego.RegisterLibFunc(&mb5_query_get_lasthttpcode, libmusicbrainz5, "mb5_query_get_lasthttpcode")

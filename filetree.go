@@ -66,9 +66,45 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 	// if already tagged with MBIDs
 	tid, ok := tags.Custom["MusicBrainz Album Id"]
 	if !ok || tid == "" {
-		log.Printf("not tagged with MBIDs, skipping (will write interface to query mb later): %s\n", p)
-		return nil
+		if c.Config.SkipMB {
+			log.Printf("not tagged with MBIDs, skipping: %s\n", p)
+			return nil
+		}
+
+		artist := tags.AlbumArtist
+		if artist == "" {
+			artist = tags.Artist
+		}
+		album := tags.Album
+		if album == "" {
+			log.Printf("not tagged with MBIDs and no album tag, skipping: %s\n", p)
+			return nil
+		}
+
+		log.Printf("not tagged with MBIDs, searching for %s - %s\n", artist, album)
+		results, err := c.SearchMB(artist, album)
+		if err != nil {
+			log.Printf("search failed: %v\n", err)
+			return nil
+		}
+
+		if len(results) == 0 {
+			log.Printf("no matches found for %s - %s\n", artist, album)
+			return nil
+		}
+
+		selected, err := c.SelectRelease(results)
+		if err != nil || selected == nil {
+			return nil
+		}
+
+		if tags.Custom == nil {
+			tags.Custom = make(map[string]string)
+		}
+		tags.Custom["MusicBrainz Album Id"] = selected.ID
+		tid = selected.ID
 	}
+
 	if len(tid) != 36 {
 		log.Printf("corrupt MBID [%s]: %s\n", tid, p)
 		return nil

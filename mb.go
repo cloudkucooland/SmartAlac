@@ -28,11 +28,7 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags) (*mp4tag.MP4Tags, bool, error
 		return in, false, nil
 	}
 
-	recordingID, ok := in.Custom["MusicBrainz Track Id"]
-	if !ok {
-		log.Println("no recordingID, skipping")
-		return in, false, nil
-	}
+	recordingID, _ := in.Custom["MusicBrainz Track Id"]
 
 	if in.TrackNumber < 1 {
 		log.Println("no track number, skipping")
@@ -146,6 +142,11 @@ defer mb5_metadata_delete(metadata)
 	if foundTrack != nil {
 		recording := mb5_track_get_recording(foundTrack)
 		if recording != nil {
+			if recordingID == "" {
+				var buf [37]byte
+				mb5_recording_get_id(unsafe.Pointer(recording), (*byte)(unsafe.Pointer(&buf[0])), 37)
+				recordingID = strings.Trim(string(buf[:]), "\x00")
+			}
 			tac := mb5_recording_get_artistcredit(recording)
 			if tac == nil {
 				tac = mb5_track_get_artistcredit(foundTrack)
