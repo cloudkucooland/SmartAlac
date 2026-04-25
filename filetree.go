@@ -64,7 +64,7 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 		log.Printf("%# v\n", pretty.Formatter(tags.Custom))
 	}
 	// if already tagged with MBIDs
-	tid, ok := tags.Custom["MusicBrainz Album Id"]
+	tid, _ := tags.Custom["MusicBrainz Album Id"]
 	discID, _ := tags.Custom["MusicBrainz Disc Id"]
 	toc, _ := tags.Custom["TOC"]
 
@@ -106,7 +106,7 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 				if err == nil && len(fingerprints) > 0 {
 					// Use the first fingerprint (AcoustID usually only needs one)
 					fp := fingerprints[0]
-					resolvedID, err := c.acoustIDLookup(fp.Fingerprint, fp.Duration)
+					resolvedID, err := c.acoustIDLookup(fp.Fingerprint, fp.DurationInSeconds)
 					if err == nil && resolvedID != "" {
 						tid = resolvedID
 						if c.Config.Debug {
@@ -179,7 +179,6 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 		}
 
 		renametags = newtags
-...
 		if err != nil {
 			log.Printf("updating: %s\n", err.Error())
 			return err
