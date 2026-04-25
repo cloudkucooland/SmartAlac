@@ -107,7 +107,7 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 					// Use the first fingerprint (AcoustID usually only needs one)
 					fp := fingerprints[0]
 					encoded := EncodeFingerprint(fp.Fingerprint)
-					resolvedID, err := c.acoustIDLookup(encoded, int(fp.DurationInSeconds))
+					resolvedID, err := c.AcoustIDLookup(encoded, int(fp.DurationInSeconds))
 					if err == nil && resolvedID != "" {
 						tid = resolvedID
 						if c.Config.Debug {
@@ -172,9 +172,9 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 		var err error
 
 		if tid != "" {
-			newtags, changed, err = c.updateFromMB(tags, tid)
+			newtags, changed, err = c.UpdateFromMB(tags, tid)
 		} else if discID != "" {
-			newtags, changed, err = c.updateFromDiscID(tags, discID)
+			newtags, changed, err = c.UpdateFromDiscID(tags, discID)
 		}
 
 		renametags = newtags

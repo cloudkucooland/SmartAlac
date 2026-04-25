@@ -67,7 +67,7 @@ type riptrack_t struct {
 
 func cdio_worker(ctx context.Context, devicename string, p *tea.Program) {
 	if p != nil {
-		p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] Starting", devicename)})
+		p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Starting"})
 	}
 
 	ticker := time.NewTicker(time.Second * 10)
@@ -83,7 +83,7 @@ func cdio_worker(ctx context.Context, devicename string, p *tea.Program) {
 
 			if opened := cdio.MmcGetTrayStatus(cddevice); opened {
 				if p != nil {
-					p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] Tray open", devicename)})
+					p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Tray open"})
 				}
 				cdio.Destroy(cddevice)
 				continue
@@ -92,12 +92,12 @@ func cdio_worker(ctx context.Context, devicename string, p *tea.Program) {
 			state := cdio.MmcTestUnitReady(cddevice, 3600)
 			if state == 0 {
 				if p != nil {
-					p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] Disc detected", devicename)})
+					p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Disc detected"})
 				}
 				if err := ripdisc(ctx, devicename, cddevice, p); err != nil {
 					slog.Error("ripping failed", "device", devicename, "error", err)
 					if p != nil {
-						p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] Error: %v", devicename, err)})
+						p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: fmt.Sprintf("Error: %v", err)})
 					}
 				}
 				// Drain any pending ticks
@@ -108,14 +108,14 @@ func cdio_worker(ctx context.Context, devicename string, p *tea.Program) {
 				cdio.MmcEjectMedia(cddevice)
 			} else {
 				if p != nil {
-					p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] Checking tray...", devicename)})
+					p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Checking tray..."})
 				}
 			}
 
 			cdio.Destroy(cddevice)
 		case <-ctx.Done():
 			if p != nil {
-				p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] Stopped", devicename)})
+				p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Stopped"})
 			}
 			return
 		}
@@ -126,12 +126,12 @@ func ripdisc(ctx context.Context, devicename string, cddevice cdio.Device, p *te
 	d := ripdisc_t{}
 
 	if p != nil {
-		p.Send(ProgressMsg{"ripper", 0.0})
-		p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] Calculating DiscID...", devicename)})
+		p.Send(ProgressMsg{Component: "ripper", Device: devicename, Percent: 0.0})
+		p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Calculating DiscID..."})
 	}
 	d.MBdiscid = get_mbdiscid(cddevice)
 	if p != nil {
-		p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] ID: %s", devicename, d.MBdiscid)})
+		p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: fmt.Sprintf("ID: %s", d.MBdiscid)})
 	}
 
 	mbid_safe := strings.ReplaceAll(d.MBdiscid, "/", "_")
@@ -139,7 +139,7 @@ func ripdisc(ctx context.Context, devicename string, cddevice cdio.Device, p *te
 	_, err := os.Stat(fullpath)
 	if err == nil {
 		if p != nil {
-			p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] Already ripped, skipping", devicename)})
+			p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Already ripped, skipping"})
 		}
 		cdio.MmcEjectMedia(cddevice)
 		return nil
@@ -154,7 +154,7 @@ func ripdisc(ctx context.Context, devicename string, cddevice cdio.Device, p *te
 
 	// get whatever data we can from the disc
 	if p != nil {
-		p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] Reading CD-Text...", devicename)})
+		p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Reading CD-Text..."})
 	}
 	get_cdtext(&d, cddevice)
 
@@ -211,9 +211,9 @@ func ripdisc(ctx context.Context, devicename string, cddevice cdio.Device, p *te
 
 		if p != nil {
 			if i == 0 {
-				p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] Initializing drive...", devicename)})
+				p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Initializing drive..."})
 			}
-			p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] Track %d/%d", devicename, t.ID, d.Trackcount)})
+			p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: fmt.Sprintf("Track %d/%d", t.ID, d.Trackcount)})
 		}
 		fs := cdio.CddapTrackFirstsector(cdda, t.ID)
 		ls := cdio.CddapTrackLastsector(cdda, t.ID)
@@ -251,11 +251,11 @@ func ripdisc(ctx context.Context, devicename string, cddevice cdio.Device, p *te
 			}
 
 			if p != nil && j%50 == 0 {
-				p.Send(ProgressMsg{"ripper", float64(j-fs) / float64(ls-fs)})
+				p.Send(ProgressMsg{Component: "ripper", Device: devicename, Percent: float64(j-fs) / float64(ls-fs)})
 			}
 		}
 		if p != nil {
-			p.Send(ProgressMsg{"ripper", 1.0})
+			p.Send(ProgressMsg{Component: "ripper", Device: devicename, Percent: 1.0})
 		}
 		buffer.Flush()
 		rip.Close()
@@ -265,7 +265,7 @@ func ripdisc(ctx context.Context, devicename string, cddevice cdio.Device, p *te
 
 	// move files from rip to encode dir
 	if p != nil {
-		p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] Moving to encode queue...", devicename)})
+		p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Moving to encode queue..."})
 	}
 	if err := move_ripdir(&d, fullpath); err != nil {
 		return err
@@ -273,7 +273,7 @@ func ripdisc(ctx context.Context, devicename string, cddevice cdio.Device, p *te
 
 	cdio.MmcEjectMedia(cddevice)
 	if p != nil {
-		p.Send(StatusMsg{"ripper", fmt.Sprintf("[%s] Complete. Ejecting.", devicename)})
+		p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Complete. Ejecting."})
 	}
 	return nil
 }

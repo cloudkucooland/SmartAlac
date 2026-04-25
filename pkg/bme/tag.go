@@ -20,7 +20,7 @@ var selectionChan = make(chan mb_release)
 
 func tagger(ctx context.Context, p *tea.Program) {
 	if p != nil {
-		p.Send(StatusMsg{"tagger", "Starting"})
+		p.Send(StatusMsg{Component: "tagger", Status: "Starting"})
 	}
 
 	ticker := time.NewTicker(time.Second * 10)
@@ -32,12 +32,12 @@ func tagger(ctx context.Context, p *tea.Program) {
 			if err := tag_process_directories(ctx, p); err != nil {
 				slog.Error("tagger failed", "error", err)
 				if p != nil {
-					p.Send(StatusMsg{"tagger", fmt.Sprintf("Error: %v", err)})
+					p.Send(StatusMsg{Component: "tagger", Status: fmt.Sprintf("Error: %v", err)})
 				}
 			}
 		case <-ctx.Done():
 			if p != nil {
-				p.Send(StatusMsg{"tagger", "Stopped"})
+				p.Send(StatusMsg{Component: "tagger", Status: "Stopped"})
 			}
 			return
 		}
@@ -65,13 +65,13 @@ func tag_process_directories(ctx context.Context, p *tea.Program) error {
 
 		mbid := albums[i].Name()
 		if p != nil {
-			p.Send(ProgressMsg{"tagger", 0.0})
-			p.Send(StatusMsg{"tagger", fmt.Sprintf("Tagging %s...", mbid)})
+			p.Send(ProgressMsg{Component: "tagger", Percent: 0.0})
+			p.Send(StatusMsg{Component: "tagger", Status: fmt.Sprintf("Tagging %s...", mbid)})
 		}
 		if err := tag_process_directory(ctx, mbid, p); err != nil {
 			slog.Error("failed to process directory", "mbid", mbid, "error", err)
 			if p != nil {
-				p.Send(StatusMsg{"tagger", fmt.Sprintf("Error [%s]: %v", mbid, err)})
+				p.Send(StatusMsg{Component: "tagger", Status: fmt.Sprintf("Error [%s]: %v", mbid, err)})
 			}
 		}
 	}
@@ -96,7 +96,7 @@ func tag_process_directory(ctx context.Context, mbid string, p *tea.Program) err
 		releases := mb_lookup_discid(mbid, int(ripdata.Trackcount))
 		if len(releases) == 0 {
 			if p != nil {
-				p.Send(StatusMsg{"tagger", "No MB matches, using CD-Text"})
+				p.Send(StatusMsg{Component: "tagger", Status: "No MB matches, using CD-Text"})
 			}
 			// Fallback: Create mbdata from ripdata
 			mbdata = mb_release{
@@ -161,15 +161,15 @@ func tag_process_directory(ctx context.Context, mbid string, p *tea.Program) err
 		} else {
 			processed++
 			if p != nil {
-				p.Send(StatusMsg{"tagger", fmt.Sprintf("[%s] %d/%d", mbid, processed, total)})
-				p.Send(ProgressMsg{"tagger", float64(processed) / float64(total)})
+				p.Send(StatusMsg{Component: "tagger", Status: fmt.Sprintf("[%s] %d/%d", mbid, processed, total)})
+				p.Send(ProgressMsg{Component: "tagger", Percent: float64(processed) / float64(total)})
 			}
 		}
 	}
 
 	// move to done directory
 	if p != nil {
-		p.Send(StatusMsg{"tagger", "Finishing..."})
+		p.Send(StatusMsg{Component: "tagger", Status: "Finishing..."})
 	}
 	t := filepath.Join(finaldir, mbid)
 	if err := os.Rename(d, t); err != nil {

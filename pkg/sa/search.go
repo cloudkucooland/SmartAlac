@@ -19,6 +19,9 @@ type MBRelease struct {
 	Barcode        string
 	Disambiguation string
 	TrackCount     int
+	Label          string
+	CatalogNumber  string
+	Media          string
 }
 
 func (c *Curator) SearchMB(artist, album string) ([]MBRelease, error) {
@@ -33,7 +36,17 @@ func (c *Curator) SearchMB(artist, album string) ([]MBRelease, error) {
 	}
 
 	c.rl.Take()
-	metadata := mb5.QueryQuery(c.mb5query, "release", "", searchQuery, 0, nil, nil)
+
+	// Prepare query parameters for explicit "inc" request to get labels and media
+	var params [1]*byte
+	p1 := []byte("inc")
+	params[0] = &p1[0]
+
+	var values [1]*byte
+	v1 := []byte("artists labels release-groups artist-credits")
+	values[0] = &v1[0]
+
+	metadata := mb5.QueryQuery(c.mb5query, "release", "", searchQuery, 1, unsafe.Pointer(&params), unsafe.Pointer(&values))
 	if metadata == nil {
 		return nil, fmt.Errorf("search failed")
 	}
@@ -64,6 +77,17 @@ func (c *Curator) SearchMB(artist, album string) ([]MBRelease, error) {
 		ml := mb5.ReleaseGetMediumlist(rel)
 		if ml != nil {
 			r.TrackCount = mb5.MediumListGetTrackcount(ml)
+			// Get Media format from the first medium
+			if mb5.MediumListSize(ml) > 0 {
+				med := mb5.MediumListItem(ml, 0)
+				r.Media = mb5.String(mb5.MediumGetFormat, unsafe.Pointer(med))
+			}
+		}
+
+		liList := mb5.ReleaseGetLabelinfolist(rel)
+		if liList != nil {
+			r.Label = c.fmtLabelsMB5(liList)
+			r.CatalogNumber = c.fmtCatalogNumbersMB5(liList)
 		}
 
 		results = append(results, r)
@@ -81,6 +105,12 @@ func (c *Curator) SelectRelease(results []MBRelease) (*MBRelease, error) {
 	for i, r := range results {
 		fmt.Printf("[%d] %s - %s\n", i+1, r.Artist, r.Title)
 		fmt.Printf("    ID: %s | Date: %s | Country: %s | Tracks: %d\n", r.ID, r.Date, r.Country, r.TrackCount)
+		if r.Label != "" || r.CatalogNumber != "" {
+			fmt.Printf("    Label: %s | Cat#: %s\n", r.Label, r.CatalogNumber)
+		}
+		if r.Media != "" {
+			fmt.Printf("    Media: %s\n", r.Media)
+		}
 		if r.Disambiguation != "" {
 			fmt.Printf("    Disambiguation: %s\n", r.Disambiguation)
 		}

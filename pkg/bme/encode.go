@@ -32,7 +32,7 @@ type result struct {
 
 func encoder(ctx context.Context, p *tea.Program) {
 	if p != nil {
-		p.Send(StatusMsg{"encoder", "Starting"})
+		p.Send(StatusMsg{Component: "encoder", Status: "Starting"})
 	}
 
 	ticker := time.NewTicker(time.Second * 10)
@@ -44,12 +44,12 @@ func encoder(ctx context.Context, p *tea.Program) {
 			if err := process_directory(ctx, p); err != nil {
 				slog.Error("encoder failed", "error", err)
 				if p != nil {
-					p.Send(StatusMsg{"encoder", fmt.Sprintf("Error: %v", err)})
+					p.Send(StatusMsg{Component: "encoder", Status: fmt.Sprintf("Error: %v", err)})
 				}
 			}
 		case <-ctx.Done():
 			if p != nil {
-				p.Send(StatusMsg{"encoder", "Stopped"})
+				p.Send(StatusMsg{Component: "encoder", Status: "Stopped"})
 			}
 			return
 		}
@@ -82,8 +82,8 @@ func process_directory(ctx context.Context, p *tea.Program) error {
 	}
 
 	if p != nil {
-		p.Send(ProgressMsg{"encoder", 0.0})
-		p.Send(StatusMsg{"encoder", fmt.Sprintf("Encoding %s...", mbid)})
+		p.Send(ProgressMsg{Component: "encoder", Percent: 0.0})
+		p.Send(StatusMsg{Component: "encoder", Status: fmt.Sprintf("Encoding %s...", mbid)})
 	}
 
 	files, err := os.ReadDir(d)
@@ -152,8 +152,8 @@ func process_directory(ctx context.Context, p *tea.Program) error {
 			} else {
 				completed++
 				if p != nil {
-					p.Send(StatusMsg{"encoder", fmt.Sprintf("[%s] %d/%d", mbid, completed, tracks)})
-					p.Send(ProgressMsg{"encoder", float64(completed) / float64(tracks)})
+					p.Send(StatusMsg{Component: "encoder", Status: fmt.Sprintf("[%s] %d/%d", mbid, completed, tracks)})
+					p.Send(ProgressMsg{Component: "encoder", Percent: float64(completed) / float64(tracks)})
 				}
 			}
 		case <-ctx.Done():
@@ -168,7 +168,7 @@ endresults:
 
 	// move to tag directory
 	if p != nil {
-		p.Send(StatusMsg{"encoder", "Moving to tagger..."})
+		p.Send(StatusMsg{Component: "encoder", Status: "Moving to tagger..."})
 	}
 	t := filepath.Join(tagdir, mbid)
 	if err := os.Rename(d, t); err != nil {

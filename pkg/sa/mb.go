@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"time"
 	"unsafe"
@@ -31,7 +33,7 @@ type AcoustIDResponse struct {
 	} `json:"results"`
 }
 
-func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.MP4Tags, bool, error) {
+func (c *Curator) UpdateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.MP4Tags, bool, error) {
 	if c.mb5query == nil {
 		return in, false, fmt.Errorf("mb5 query not initialized")
 	}
@@ -54,13 +56,15 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 
 	recordingID := in.Custom["MusicBrainz Track Id"]
 
+	// Track and Disc numbers are required for matching within a release
 	if in.TrackNumber < 1 {
 		log.Println("no track number, skipping")
 		return in, false, nil
 	}
 	if in.DiscNumber < 1 {
-		log.Println("no disc number, skipping")
-		return in, false, nil
+		// Default to disc 1 if not set? Some tools use 0 or 1.
+		// For picker tool, if they aren't tagged, we might need to assume or infer.
+		in.DiscNumber = 1
 	}
 
 	c.Stats.mu.Lock()
@@ -88,7 +92,6 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		if metadata != nil {
 			break
 		}
-		defer mb5.MetadataDelete(metadata)
 
 		lastCode := mb5.QueryGetLasthttpcode(c.mb5query)
 		if lastCode == 503 && retryCount < 3 {
@@ -105,10 +108,10 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		var errbuf [256]byte
 		mb5.QueryGetLasterrormessage(c.mb5query, &errbuf[0], 256)
 		cErr := strings.Trim(string(errbuf[:]), "\x00")
-		// return in, false, fmt.Errorf("query to MusicBrainz failed for %s (HTTP %d): %s", releaseid, lastCode, cErr)
 		log.Printf("query to MusicBrainz failed for %s (HTTP %d): %s", releaseid, lastCode, cErr)
-		return in, true, nil
+		return in, false, nil
 	}
+	defer mb5.MetadataDelete(metadata)
 
 	release := mb5.MetadataGetRelease(metadata)
 	if release == nil {
@@ -214,7 +217,6 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		if rgid := mb5.String(mb5.ReleasegroupGetID, unsafe.Pointer(rg)); rgid != "" {
 			out.Custom["MusicBrainz Release Group Id"] = rgid
 		}
-		// Album Type is commented out in mb5.go
 	}
 
 	if date := mb5.String(mb5.ReleaseGetDate, unsafe.Pointer(release)); date != "" {
@@ -252,7 +254,6 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		}
 	}
 
-	// LANGUAGE and SCRIPT are commented out in mb5.go
 	if aids := c.joinArtistIDsMB5(ac); aids != "" {
 		out.Custom["MusicBrainz Album Artist Id"] = aids
 	}
@@ -459,7 +460,7 @@ func (c *Curator) fmtCatalogNumbersMB5(liList mb5.LabelInfoList) string {
 	return strings.Join(cats, "; ")
 }
 
-func (c *Curator) updateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.MP4Tags, bool, error) {
+func (c *Curator) UpdateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.MP4Tags, bool, error) {
 	if c.mb5query == nil {
 		return in, false, fmt.Errorf("mb5 query not initialized")
 	}
@@ -511,7 +512,7 @@ func (c *Curator) updateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 	}
 
 	// Now call the standard update with this release ID
-	out, changed, err := c.updateFromMB(in, releaseID)
+	out, changed, err := c.UpdateFromMB(in, releaseID)
 	if err == nil && out != nil {
 		if out.Custom == nil {
 			out.Custom = make(map[string]string)
@@ -521,7 +522,7 @@ func (c *Curator) updateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 	return out, changed, err
 }
 
-func (c *Curator) acoustIDLookup(fingerprint string, duration int) (string, error) {
+func (c *Curator) AcoustIDLookup(fingerprint string, duration int) (string, error) {
 	if c.Config.AcoustIDKey == "" {
 		return "", fmt.Errorf("AcoustID key not set")
 	}
@@ -565,4 +566,56 @@ func (c *Curator) acoustIDLookup(fingerprint string, duration int) (string, erro
 	}
 
 	return "", nil
+}
+
+// TagDirectory tags all .m4a files in a directory with the given MusicBrainz release ID.
+func (c *Curator) TagDirectory(dir, releaseID string, p interface{}) error {
+	files, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range files {
+		if !strings.HasSuffix(f.Name(), ".m4a") {
+			continue
+		}
+
+		path := filepath.Join(dir, f.Name())
+		mp4, err := mp4tag.Open(path)
+		if err != nil {
+			log.Printf("error opening %s: %v", path, err)
+			continue
+		}
+
+		tags, err := mp4.Read()
+		if err != nil {
+			mp4.Close()
+			log.Printf("error reading tags from %s: %v", path, err)
+			continue
+		}
+
+		newTags, changed, err := c.UpdateFromMB(tags, releaseID)
+		if err != nil {
+			mp4.Close()
+			log.Printf("error updating tags for %s: %v", path, err)
+			continue
+		}
+
+		if changed {
+			if !c.Config.DryRun {
+				if err := mp4.Write(newTags, []string{}); err != nil {
+					log.Printf("error writing tags to %s: %v", path, err)
+				}
+			}
+		}
+		mp4.Close()
+
+		if !c.Config.SkipMove {
+			if err := c.rename(path, newTags); err != nil {
+				log.Printf("error renaming %s: %v", path, err)
+			}
+		}
+	}
+
+	return nil
 }

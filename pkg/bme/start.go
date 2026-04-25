@@ -123,7 +123,7 @@ func Start(ctx context.Context, cfg *Config, p *tea.Program) error {
 
 	<-ctx.Done()
 	if p != nil {
-		p.Send(StatusMsg{"system", "Shutdown requested"})
+		p.Send(StatusMsg{Component: "system", Status: "Shutdown requested"})
 	}
 
 	slog.Debug("waiting for background processes to finish")

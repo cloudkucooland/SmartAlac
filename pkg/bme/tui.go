@@ -2,6 +2,7 @@ package bme
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -13,11 +14,13 @@ import (
 // Messages
 type StatusMsg struct {
 	Component string
+	Device    string
 	Status    string
 }
 
 type ProgressMsg struct {
 	Component string
+	Device    string
 	Percent   float64
 }
 
@@ -54,12 +57,12 @@ var (
 )
 
 type model struct {
-	ripperStatus  string
-	encoderStatus string
-	taggerStatus  string
-	paranoiaMode  string
+	ripperStatuses   map[string]string
+	ripperProgresses map[string]progress.Model
+	encoderStatus    string
+	taggerStatus     string
+	paranoiaMode     string
 
-	ripperProgress  progress.Model
 	encoderProgress progress.Model
 	taggerProgress  progress.Model
 
@@ -74,14 +77,14 @@ type model struct {
 
 func NewModel() model {
 	return model{
-		ripperStatus:    "Idle",
-		encoderStatus:   "Idle",
-		taggerStatus:    "Idle",
-		paranoiaMode:    GetParanoiaName(),
-		ripperProgress:  progress.New(progress.WithDefaultGradient()),
+		ripperStatuses:   make(map[string]string),
+		ripperProgresses: make(map[string]progress.Model),
+		encoderStatus:    "Idle",
+		taggerStatus:     "Idle",
+		paranoiaMode:     GetParanoiaName(),
 		encoderProgress: progress.New(progress.WithDefaultGradient()),
 		taggerProgress:  progress.New(progress.WithDefaultGradient()),
-		logs:            make([]string, 0),
+		logs:             make([]string, 0),
 	}
 }
 
@@ -97,7 +100,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.ripperProgress.Width = 40
+		for k, v := range m.ripperProgresses {
+			v.Width = 40
+			m.ripperProgresses[k] = v
+		}
 		m.encoderProgress.Width = 40
 		m.taggerProgress.Width = 40
 
@@ -105,8 +111,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		var styledStatus string
 		switch msg.Component {
 		case "ripper":
-			m.ripperStatus = msg.Status
-			styledStatus = ripperStyle.Render(fmt.Sprintf("[%s] %s", msg.Component, msg.Status))
+			m.ripperStatuses[msg.Device] = msg.Status
+			if _, ok := m.ripperProgresses[msg.Device]; !ok {
+				p := progress.New(progress.WithDefaultGradient())
+				p.Width = 40
+				m.ripperProgresses[msg.Device] = p
+			}
+			styledStatus = ripperStyle.Render(fmt.Sprintf("[%s:%s] %s", msg.Component, msg.Device, msg.Status))
 		case "encoder":
 			m.encoderStatus = msg.Status
 			styledStatus = encoderStyle.Render(fmt.Sprintf("[%s] %s", msg.Component, msg.Status))
@@ -125,7 +136,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ProgressMsg:
 		switch msg.Component {
 		case "ripper":
-			cmds = append(cmds, m.ripperProgress.SetPercent(msg.Percent))
+			if p, ok := m.ripperProgresses[msg.Device]; ok {
+				cmds = append(cmds, p.SetPercent(msg.Percent))
+				m.ripperProgresses[msg.Device] = p
+			} else {
+				p := progress.New(progress.WithDefaultGradient())
+				p.Width = 40
+				cmds = append(cmds, p.SetPercent(msg.Percent))
+				m.ripperProgresses[msg.Device] = p
+			}
 		case "encoder":
 			cmds = append(cmds, m.encoderProgress.SetPercent(msg.Percent))
 		case "tagger":
@@ -133,17 +152,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 	case progress.FrameMsg:
-		newRipper, ripperCmd := m.ripperProgress.Update(msg)
-		m.ripperProgress = newRipper.(progress.Model)
-		cmds = append(cmds, ripperCmd)
+		for k, v := range m.ripperProgresses {
+			newRipper, ripperCmd := v.Update(msg)
+			m.ripperProgresses[k] = newRipper.(progress.Model)
+			if ripperCmd != nil {
+				cmds = append(cmds, ripperCmd)
+			}
+		}
 
 		newEncoder, encoderCmd := m.encoderProgress.Update(msg)
 		m.encoderProgress = newEncoder.(progress.Model)
-		cmds = append(cmds, encoderCmd)
+		if encoderCmd != nil {
+			cmds = append(cmds, encoderCmd)
+		}
 
 		newTagger, taggerCmd := m.taggerProgress.Update(msg)
 		m.taggerProgress = newTagger.(progress.Model)
-		cmds = append(cmds, taggerCmd)
+		if taggerCmd != nil {
+			cmds = append(cmds, taggerCmd)
+		}
 
 	case MBMatchesMsg:
 		m.mbMatches = msg.Releases
@@ -192,7 +219,25 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	header := headerStyle.Render("BME: Batch Music Encoder Dashboard")
 
-	ripperView := ripperStyle.Render("Ripper:   ") + m.ripperStatus
+	// Collect ripper views
+	var ripperViews []string
+	keys := make([]string, 0, len(m.ripperStatuses))
+	for k := range m.ripperStatuses {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
+	for _, k := range keys {
+		status := m.ripperStatuses[k]
+		prog := m.ripperProgresses[k]
+		ripperViews = append(ripperViews, ripperStyle.Render(fmt.Sprintf("Ripper(%s): ", k))+status)
+		ripperViews = append(ripperViews, prog.View())
+	}
+	if len(ripperViews) == 0 {
+		ripperViews = append(ripperViews, ripperStyle.Render("Ripper:   ")+"Idle")
+		ripperViews = append(ripperViews, m.encoderProgress.View()) // dummy to keep spacing? No, maybe just empty.
+	}
+
 	encoderView := encoderStyle.Render("Encoder:  ") + m.encoderStatus
 	taggerView := taggerStyle.Render("Tagger:   ") + m.taggerStatus
 	paranoiaView := systemStyle.Render("Paranoia: ") + m.paranoiaMode
@@ -202,21 +247,21 @@ func (m model) View() string {
 	if mainHeight < 10 {
 		mainHeight = 10
 	}
-	if mainHeight > 20 {
-		mainHeight = 20
-	}
+	// with multiple rippers, we might need more space, but let's see.
+
+	statusElements := []string{}
+	statusElements = append(statusElements, ripperViews...)
+	statusElements = append(statusElements,
+		encoderView,
+		m.encoderProgress.View(),
+		taggerView,
+		m.taggerProgress.View(),
+		"\n"+paranoiaView,
+	)
 
 	statusCol := statusStyle.
 		Height(mainHeight).
-		Render(lipgloss.JoinVertical(lipgloss.Left,
-			ripperView,
-			m.ripperProgress.View(),
-			encoderView,
-			m.encoderProgress.View(),
-			taggerView,
-			m.taggerProgress.View(),
-			"\n"+paranoiaView,
-		))
+		Render(lipgloss.JoinVertical(lipgloss.Left, statusElements...))
 
 	// Take last N lines of logs that fit in height
 	availableLogLines := mainHeight - 2
