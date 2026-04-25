@@ -11,10 +11,10 @@ import (
 
 func main() {
 	app := &cli.Command{
-		Name:    "curate",
-		Usage:   "Smart ALAC curator using MusicBrainz",
-		Version: "v0.6.0",
-		Authors: []any{"Scot C. Bontrager <cloudkucooland@gmail.com>"},
+		Name:      "curate",
+		Usage:     "Smart ALAC curator using MusicBrainz",
+		Version:   "v0.6.0",
+		Authors:   []any{"Scot C. Bontrager <cloudkucooland@gmail.com>"},
 		Copyright: "© 2025 Scot C. Bontrager",
 
 		Flags: []cli.Flag{

@@ -88,6 +88,7 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		if metadata != nil {
 			break
 		}
+		defer mb5.MetadataDelete(metadata)
 
 		lastCode := mb5.QueryGetLasthttpcode(c.mb5query)
 		if lastCode == 503 && retryCount < 3 {
@@ -104,9 +105,10 @@ func (c *Curator) updateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		var errbuf [256]byte
 		mb5.QueryGetLasterrormessage(c.mb5query, &errbuf[0], 256)
 		cErr := strings.Trim(string(errbuf[:]), "\x00")
-		return in, false, fmt.Errorf("query to MusicBrainz failed for %s (HTTP %d): %s", releaseid, lastCode, cErr)
+		// return in, false, fmt.Errorf("query to MusicBrainz failed for %s (HTTP %d): %s", releaseid, lastCode, cErr)
+		log.Printf("query to MusicBrainz failed for %s (HTTP %d): %s", releaseid, lastCode, cErr)
+		return in, true, nil
 	}
-	defer mb5.MetadataDelete(metadata)
 
 	release := mb5.MetadataGetRelease(metadata)
 	if release == nil {
