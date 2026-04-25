@@ -58,7 +58,7 @@ func main() {
 			&cli.StringFlag{
 				Name:    "acoustid-key",
 				Usage:   "AcoustID API key for fingerprinting fallback",
-				EnvVars: []string{"ACOUSTID_KEY"},
+				Sources: cli.EnvVars("ACOUSTID_KEY"),
 			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {

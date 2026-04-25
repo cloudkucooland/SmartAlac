@@ -106,7 +106,8 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 				if err == nil && len(fingerprints) > 0 {
 					// Use the first fingerprint (AcoustID usually only needs one)
 					fp := fingerprints[0]
-					resolvedID, err := c.acoustIDLookup(fp.Fingerprint, fp.DurationInSeconds)
+					encoded := EncodeFingerprint(fp.Fingerprint)
+					resolvedID, err := c.acoustIDLookup(encoded, int(fp.DurationInSeconds))
 					if err == nil && resolvedID != "" {
 						tid = resolvedID
 						if c.Config.Debug {
