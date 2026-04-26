@@ -156,7 +156,7 @@ func (c *Curator) UpdateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		if mb5.MediumGetPosition(m) == int(in.DiscNumber) {
 			foundMedium = m
 			tl := mb5.MediumGetTracklist(m)
-			out.TrackTotal = int16(mb5.TrackListGetCount(tl))
+			out.TrackTotal = int16(mb5.TrackListSize(tl))
 			for j := 0; j < int(out.TrackTotal); j++ {
 				t := mb5.TrackListItem(tl, j)
 				if mb5.TrackGetPosition(t) == int(in.TrackNumber) {
@@ -365,7 +365,7 @@ func (c *Curator) fmtArtistCreditMB5(ac mb5.ArtistCredit) string {
 		return ""
 	}
 	ncl := mb5.ArtistcreditGetNamecreditlist(ac)
-	count := mb5.NamecreditListGetCount(ncl)
+	count := mb5.NamecreditListSize(ncl)
 	var s string
 	for i := 0; i < count; i++ {
 		nc := mb5.NamecreditListItem(ncl, i)
@@ -385,7 +385,7 @@ func (c *Curator) fmtArtistCreditSortMB5(ac mb5.ArtistCredit) string {
 		return ""
 	}
 	ncl := mb5.ArtistcreditGetNamecreditlist(ac)
-	count := mb5.NamecreditListGetCount(ncl)
+	count := mb5.NamecreditListSize(ncl)
 	var s string
 	for i := 0; i < count; i++ {
 		nc := mb5.NamecreditListItem(ncl, i)
@@ -402,7 +402,7 @@ func (c *Curator) fmtArtistListMB5(ac mb5.ArtistCredit) string {
 		return ""
 	}
 	ncl := mb5.ArtistcreditGetNamecreditlist(ac)
-	count := mb5.NamecreditListGetCount(ncl)
+	count := mb5.NamecreditListSize(ncl)
 	var s string
 	for i := 0; i < count; i++ {
 		nc := mb5.NamecreditListItem(ncl, i)
@@ -421,7 +421,7 @@ func (c *Curator) joinArtistIDsMB5(ac mb5.ArtistCredit) string {
 		return ""
 	}
 	ncl := mb5.ArtistcreditGetNamecreditlist(ac)
-	count := mb5.NamecreditListGetCount(ncl)
+	count := mb5.NamecreditListSize(ncl)
 	var s string
 	for i := 0; i < count; i++ {
 		nc := mb5.NamecreditListItem(ncl, i)
