@@ -51,7 +51,8 @@ func tag_process_directories(ctx context.Context, p *tea.Program) error {
 	}
 	if len(albums) == 0 {
 		if p != nil {
-			// p.Send(StatusMsg{"tagger", "Idle"})
+			p.Send(StatusMsg{Component: "tagger", Status: "Idle"})
+			p.Send(ProgressMsg{Component: "tagger", Percent: 0.0})
 		}
 		return nil
 	}
@@ -74,6 +75,10 @@ func tag_process_directories(ctx context.Context, p *tea.Program) error {
 				p.Send(StatusMsg{Component: "tagger", Status: fmt.Sprintf("Error [%s]: %v", mbid, err)})
 			}
 		}
+	}
+	if p != nil {
+		p.Send(StatusMsg{Component: "tagger", Status: "Idle"})
+		p.Send(ProgressMsg{Component: "tagger", Percent: 0.0})
 	}
 	return nil
 }

@@ -109,8 +109,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case StatusMsg:
 		var styledStatus string
+		var statusChanged bool
+
 		switch msg.Component {
 		case "ripper":
+			if m.ripperStatuses[msg.Device] != msg.Status {
+				statusChanged = true
+			}
 			m.ripperStatuses[msg.Device] = msg.Status
 			if _, ok := m.ripperProgresses[msg.Device]; !ok {
 				p := progress.New(progress.WithDefaultGradient())
@@ -119,18 +124,27 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			styledStatus = ripperStyle.Render(fmt.Sprintf("[%s:%s] %s", msg.Component, msg.Device, msg.Status))
 		case "encoder":
+			if m.encoderStatus != msg.Status {
+				statusChanged = true
+			}
 			m.encoderStatus = msg.Status
 			styledStatus = encoderStyle.Render(fmt.Sprintf("[%s] %s", msg.Component, msg.Status))
 		case "tagger":
+			if m.taggerStatus != msg.Status {
+				statusChanged = true
+			}
 			m.taggerStatus = msg.Status
 			styledStatus = taggerStyle.Render(fmt.Sprintf("[%s] %s", msg.Component, msg.Status))
 		default:
+			statusChanged = true // Always log system messages
 			styledStatus = systemStyle.Render(fmt.Sprintf("[%s] %s", msg.Component, msg.Status))
 		}
 
-		m.logs = append(m.logs, styledStatus)
-		if len(m.logs) > 50 {
-			m.logs = m.logs[1:]
+		if statusChanged && msg.Status != "Idle" {
+			m.logs = append(m.logs, styledStatus)
+			if len(m.logs) > 50 {
+				m.logs = m.logs[1:]
+			}
 		}
 
 	case ProgressMsg:
@@ -183,6 +197,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.mbList.Title = fmt.Sprintf("Select Release for DiscID: %s", msg.MBID)
 
 	case tea.KeyMsg:
+		// Global keys that work in any state
+		switch msg.String() {
+		case "ctrl+c":
+			return m, tea.Quit
+		case "ctrl+l":
+			return m, tea.ClearScreen
+		}
+
 		if m.selecting {
 			switch msg.String() {
 			case "enter":
@@ -193,6 +215,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					selectionChan <- selected
 				}()
 				return m, nil
+			case "q":
+				return m, tea.Quit
 			}
 			m.mbList, cmd = m.mbList.Update(msg)
 			return m, cmd
@@ -203,12 +227,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			mode := ToggleParanoia()
 			m.paranoiaMode = GetParanoiaName()
 			m.logs = append(m.logs, systemStyle.Render(fmt.Sprintf("[system] Paranoia set to: %s", mode)))
-		case "ctrl+l":
-			return m, tea.ClearScreen
 		case "X":
 			PurgeDirectories()
 			m.logs = append(m.logs, systemStyle.Render("[system] Working directories purged"))
-		case "q", "ctrl+c":
+		case "q":
 			return m, tea.Quit
 		}
 	}

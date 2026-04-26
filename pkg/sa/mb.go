@@ -35,6 +35,14 @@ type AcoustIDResponse struct {
 	} `json:"results"`
 }
 
+func isMBID(id string) bool {
+	if len(id) != 36 {
+		return false
+	}
+	// Basic UUID check: 8-4-4-4-12
+	return strings.Count(id, "-") == 4
+}
+
 func (c *Curator) UpdateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.MP4Tags, bool, error) {
 	if c.mb5query == nil {
 		return in, false, fmt.Errorf("mb5 query not initialized")
@@ -54,6 +62,30 @@ func (c *Curator) UpdateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 			log.Println("no release ID, skipping")
 			return in, false, nil
 		}
+	}
+
+	// Validate releaseid. If it's malformed and was in the tags, we want to remove it.
+	if !isMBID(releaseid) {
+		if releaseid != "" && releaseid != "0" {
+			log.Printf("malformed MusicBrainz ID found and removed: %q", releaseid)
+			out := *in
+			if out.Custom != nil {
+				newCustom := make(map[string]string)
+				for k, v := range out.Custom {
+					newCustom[k] = v
+				}
+				delete(newCustom, "MusicBrainz Album Id")
+				// Also scrub other potentially malformed MBIDs
+				for k, v := range newCustom {
+					if strings.HasPrefix(k, "MusicBrainz") && !isMBID(v) {
+						delete(newCustom, k)
+					}
+				}
+				out.Custom = newCustom
+				return &out, true, nil
+			}
+		}
+		return in, false, nil
 	}
 
 	recordingID := in.Custom["MusicBrainz Track Id"]
@@ -283,12 +315,15 @@ func normalizeString(s string) string {
 	r := strings.NewReplacer(
 		"’", "'",
 		"‘", "'",
-		"“", "\"",
+		"´", "'",
 		"”", "\"",
+		"“", "\"",
 		"‐", "-", // hyphen
+		"−", "-", // minus
 		"–", "-", // en-dash
 		"—", "-", // em-dash
 		"…", "...",
+		"\u00a0", " ", // non-breaking space
 	)
 	return strings.ToLower(strings.TrimSpace(r.Replace(s)))
 }

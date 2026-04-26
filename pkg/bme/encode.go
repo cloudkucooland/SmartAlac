@@ -66,7 +66,8 @@ func process_directory(ctx context.Context, p *tea.Program) error {
 	}
 	if len(albums) == 0 {
 		if p != nil {
-			// p.Send(StatusMsg{"encoder", "Idle"})
+			p.Send(StatusMsg{Component: "encoder", Status: "Idle"})
+			p.Send(ProgressMsg{Component: "encoder", Percent: 0.0})
 		}
 		return nil
 	}
@@ -173,6 +174,10 @@ endresults:
 	t := filepath.Join(tagdir, mbid)
 	if err := os.Rename(d, t); err != nil {
 		return fmt.Errorf("failed to move to tag directory: %w", err)
+	}
+	if p != nil {
+		p.Send(StatusMsg{Component: "encoder", Status: "Idle"})
+		p.Send(ProgressMsg{Component: "encoder", Percent: 0.0})
 	}
 	return nil
 }
