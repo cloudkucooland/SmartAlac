@@ -59,7 +59,7 @@ func (c *Curator) UpdateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 
 	// Track and Disc numbers are required for matching within a release
 	if in.TrackNumber < 1 {
-		log.Println("no track number, skipping")
+		log.Printf("skipping track with number %d", in.TrackNumber)
 		return in, false, nil
 	}
 	if in.DiscNumber < 1 {
@@ -613,12 +613,18 @@ func (c *Curator) TagDirectory(dir, releaseID string, p interface{}) error {
 		}
 
 		if changed {
+			log.Printf("tagging %s (Track %d)...", f.Name(), newTags.TrackNumber)
 			if !c.Config.DryRun {
 				// Ensure Custom map is initialized
 				if newTags.Custom == nil {
 					newTags.Custom = make(map[string]string)
 				}
-				if err := mp4.Write(newTags, []string{}); err != nil {
+				// Pass all custom tag keys to ensure they are saved
+				customKeys := make([]string, 0, len(newTags.Custom))
+				for k := range newTags.Custom {
+					customKeys = append(customKeys, k)
+				}
+				if err := mp4.Write(newTags, customKeys); err != nil {
 					log.Printf("error writing tags to %s: %v", path, err)
 				}
 			}
