@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
@@ -274,7 +275,44 @@ func (c *Curator) UpdateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		log.Printf("AFTER MB UPDATE: %# v", pretty.Formatter(temp))
 	}
 
-	return &out, true, nil
+	changed := !tagsEquivalent(in, &out)
+
+	return &out, changed, nil
+}
+
+func tagsEquivalent(in, out *mp4tag.MP4Tags) bool {
+	// Deep compare custom maps first
+	if len(in.Custom) != len(out.Custom) {
+		return false
+	}
+	for k, v := range in.Custom {
+		if out.Custom[k] != v {
+			return false
+		}
+	}
+
+	// Compare Date with specificity tolerance (e.g., "1995" matches "1995-06-13")
+	if in.Date != out.Date {
+		if in.Date != "" && out.Date != "" {
+			if !strings.HasPrefix(out.Date, in.Date) {
+				return false
+			}
+		} else {
+			return false
+		}
+	}
+
+	// Create copies for field comparison (excluding pictures and the fields we already checked)
+	inCopy := *in
+	outCopy := *out
+	inCopy.Pictures = nil
+	outCopy.Pictures = nil
+	inCopy.Custom = nil
+	outCopy.Custom = nil
+	inCopy.Date = ""
+	outCopy.Date = ""
+
+	return reflect.DeepEqual(inCopy, outCopy)
 }
 
 func (c *Curator) processRelations(recording mb5.Recording, custom map[string]string, out *mp4tag.MP4Tags) {

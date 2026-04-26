@@ -252,19 +252,24 @@ func (c *Curator) rename(fullpath string, tags *mp4tag.MP4Tags) error {
 	filename := fmt.Sprintf("%d-%02d %s.m4a", tags.DiscNumber, tags.TrackNumber, cleantitle)
 	finalpath := filepath.Join(albumdir, filename)
 
-	if filepath.Clean(finalpath) == filepath.Clean(fullpath) {
-		if c.Config.Debug {
-			log.Printf("no need to move: %s\n", fullpath)
-		}
-		return nil
+	srcStat, err := os.Stat(fullpath)
+	if err != nil {
+		return err
 	}
 
-	_, err := os.Stat(finalpath)
-	if err == nil && !c.Config.Overwrite {
-		log.Printf("file already exists, not overwriting: %s (from %s)\n", finalpath, fullpath)
-		return nil
-	}
-	if err != nil && !os.IsNotExist(err) {
+	destStat, err := os.Stat(finalpath)
+	if err == nil {
+		if os.SameFile(srcStat, destStat) {
+			if c.Config.Debug {
+				log.Printf("no need to move (same file): %s\n", fullpath)
+			}
+			return nil
+		}
+		if !c.Config.Overwrite {
+			log.Printf("file already exists, not overwriting: %s (from %s)\n", finalpath, fullpath)
+			return nil
+		}
+	} else if !os.IsNotExist(err) {
 		return err
 	}
 
