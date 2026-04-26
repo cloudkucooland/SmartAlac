@@ -260,6 +260,14 @@ func (c *Curator) UpdateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 	out.Custom["MusicBrainz Album Id"] = releaseid
 	out.Custom["MusicBrainz Track Id"] = recordingID
 
+	// Fallback: If AlbumArtist is still empty, use Artist
+	if out.AlbumArtist == "" && out.Artist != "" {
+		out.AlbumArtist = out.Artist
+	}
+	if out.AlbumArtistSort == "" && out.AlbumArtist != "" {
+		out.AlbumArtistSort = out.AlbumArtist
+	}
+
 	if c.Config.Debug {
 		temp := out
 		temp.Pictures = nil
