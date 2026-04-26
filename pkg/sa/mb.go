@@ -80,16 +80,14 @@ func (c *Curator) UpdateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 	var retryCount int
 	for {
 		// Prepare query parameters for explicit "inc" request
-		var params [1]*byte
-		p1 := []byte("inc")
-		params[0] = &p1[0]
-
-		var values [1]*byte
-		v1 := []byte("artists labels recordings release-groups url-rels artist-credits work-rels artist-rels work-level-rels")
-		values[0] = &v1[0]
+		p1 := []byte("inc\x00")
+		v1 := []byte("artists labels recordings release-groups url-rels artist-credits work-rels artist-rels work-level-rels\x00")
+		
+		params := [1]*byte{&p1[0]}
+		values := [1]*byte{&v1[0]}
 
 		// Query libmusicbrainz5
-		metadata = mb5.QueryQuery(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params), unsafe.Pointer(&values))
+		metadata = mb5.QueryQuery(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params[0]), unsafe.Pointer(&values[0]))
 		if metadata != nil {
 			break
 		}
@@ -280,13 +278,28 @@ func (c *Curator) UpdateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 	return &out, changed, nil
 }
 
+func normalizeString(s string) string {
+	// Normalize common MusicBrainz/Smart punctuation to standard ASCII
+	r := strings.NewReplacer(
+		"’", "'",
+		"‘", "'",
+		"“", "\"",
+		"”", "\"",
+		"‐", "-", // hyphen
+		"–", "-", // en-dash
+		"—", "-", // em-dash
+		"…", "...",
+	)
+	return strings.ToLower(strings.TrimSpace(r.Replace(s)))
+}
+
 func tagsEquivalent(in, out *mp4tag.MP4Tags) bool {
-	// Deep compare custom maps first
+	// Deep compare custom maps first (with normalization for values)
 	if len(in.Custom) != len(out.Custom) {
 		return false
 	}
 	for k, v := range in.Custom {
-		if out.Custom[k] != v {
+		if normalizeString(out.Custom[k]) != normalizeString(v) {
 			return false
 		}
 	}
@@ -302,7 +315,21 @@ func tagsEquivalent(in, out *mp4tag.MP4Tags) bool {
 		}
 	}
 
-	// Create copies for field comparison (excluding pictures and the fields we already checked)
+	// Compare primary strings with normalization
+	if normalizeString(in.Title) != normalizeString(out.Title) {
+		return false
+	}
+	if normalizeString(in.Album) != normalizeString(out.Album) {
+		return false
+	}
+	if normalizeString(in.Artist) != normalizeString(out.Artist) {
+		return false
+	}
+	if normalizeString(in.AlbumArtist) != normalizeString(out.AlbumArtist) {
+		return false
+	}
+
+	// Create copies for field comparison (excluding fields we already checked)
 	inCopy := *in
 	outCopy := *out
 	inCopy.Pictures = nil
@@ -311,6 +338,14 @@ func tagsEquivalent(in, out *mp4tag.MP4Tags) bool {
 	outCopy.Custom = nil
 	inCopy.Date = ""
 	outCopy.Date = ""
+	inCopy.Title = ""
+	outCopy.Title = ""
+	inCopy.Album = ""
+	outCopy.Album = ""
+	inCopy.Artist = ""
+	outCopy.Artist = ""
+	inCopy.AlbumArtist = ""
+	outCopy.AlbumArtist = ""
 
 	return reflect.DeepEqual(inCopy, outCopy)
 }

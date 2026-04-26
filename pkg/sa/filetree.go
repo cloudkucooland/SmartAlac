@@ -193,7 +193,12 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 				return nil
 			}
 
-			if err := mp4.Write(newtags, []string{}); err != nil {
+			// Pass all custom tag keys to ensure they are saved
+			customKeys := make([]string, 0, len(newtags.Custom))
+			for k := range newtags.Custom {
+				customKeys = append(customKeys, k)
+			}
+			if err := mp4.Write(newtags, customKeys); err != nil {
 				log.Printf("error while saving: %s\n", err.Error())
 				return err
 			}
