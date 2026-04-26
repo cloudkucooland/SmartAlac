@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 	"unsafe"
@@ -62,8 +63,7 @@ func (c *Curator) UpdateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		return in, false, nil
 	}
 	if in.DiscNumber < 1 {
-		// Default to disc 1 if not set? Some tools use 0 or 1.
-		// For picker tool, if they aren't tagged, we might need to assume or infer.
+		// Default to disc 1 if not set
 		in.DiscNumber = 1
 	}
 
@@ -594,6 +594,17 @@ func (c *Curator) TagDirectory(dir, releaseID string, p interface{}) error {
 			continue
 		}
 
+		// Inference: If track number is missing, try to parse it from the filename
+		if tags.TrackNumber < 1 {
+			d, t := inferTrackInfo(filepath.Base(path))
+			if t > 0 {
+				tags.TrackNumber = t
+			}
+			if d > 0 {
+				tags.DiscNumber = d
+			}
+		}
+
 		newTags, changed, err := c.UpdateFromMB(tags, releaseID)
 		if err != nil {
 			mp4.Close()
@@ -603,6 +614,10 @@ func (c *Curator) TagDirectory(dir, releaseID string, p interface{}) error {
 
 		if changed {
 			if !c.Config.DryRun {
+				// Ensure Custom map is initialized
+				if newTags.Custom == nil {
+					newTags.Custom = make(map[string]string)
+				}
 				if err := mp4.Write(newTags, []string{}); err != nil {
 					log.Printf("error writing tags to %s: %v", path, err)
 				}
@@ -618,4 +633,27 @@ func (c *Curator) TagDirectory(dir, releaseID string, p interface{}) error {
 	}
 
 	return nil
+}
+
+func inferTrackInfo(name string) (disc, track int16) {
+	fields := strings.Fields(name)
+	if len(fields) > 0 {
+		firstUnit := fields[0]
+		if strings.Contains(firstUnit, "-") {
+			parts := strings.Split(firstUnit, "-")
+			if len(parts) >= 2 {
+				if d, err := strconv.Atoi(parts[0]); err == nil {
+					disc = int16(d)
+				}
+				if t, err := strconv.Atoi(parts[1]); err == nil {
+					track = int16(t)
+				}
+			}
+		} else {
+			if t, err := strconv.Atoi(firstUnit); err == nil {
+				track = int16(t)
+			}
+		}
+	}
+	return
 }
