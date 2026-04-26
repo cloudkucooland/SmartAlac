@@ -183,13 +183,19 @@ func ripdisc(ctx context.Context, devicename string, cddevice cdio.Device, p *te
 	}
 	cddap := cdio.CddapOpen(cdda)
 	if cddap != 0 {
-		return fmt.Errorf("unable to open audio cd (code %d)", cddap)
+		return fmt.Errorf("unable to open audio cd (code %d): %s", cddap, cdio.CddapErrors(cdda))
 	}
+
+	// Set a safe ripping speed (e.g., 12x) to reduce jitter/errors
+	if p != nil {
+		p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Setting drive speed (12x)..."})
+	}
+	cdio.CddapSpeedSet(cdda, 12)
 
 	// just a sanity check to make sure the disc is valid
 	firstsector := cdio.CddapDiscFirstsector(cdda)
 	if firstsector < 0 {
-		return fmt.Errorf("cdio_cddap_disc_firstsector returned error")
+		return fmt.Errorf("cdio_cddap_disc_firstsector returned error: %s", cdio.CddapErrors(cdda))
 	}
 
 	para := cdio.ParanoiaInit(cdda)

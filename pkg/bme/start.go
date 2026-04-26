@@ -6,11 +6,14 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
+	"unsafe"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/cloudkucooland/SmartAlac/pkg/cdio"
 	"github.com/cloudkucooland/SmartAlac/pkg/mb5"
+	"github.com/ebitengine/purego"
 )
 
 var debug bool
@@ -18,6 +21,7 @@ var ripdir string
 var encodedir string
 var tagdir string
 var finaldir string
+var tuiProgram *tea.Program
 
 var paranoiaLevel cdio.ParanoiaMode = cdio.ParanoiaModeFull ^ cdio.ParanoiaModeNeverSkip
 
@@ -61,12 +65,52 @@ func Debug(d bool) {
 
 var AppConfig *Config
 
+func cdioLogHandler(level int, message *byte) {
+	if tuiProgram == nil {
+		return
+	}
+
+	// Manual conversion of *byte (C string) to Go string
+	var b []byte
+	ptr := uintptr(unsafe.Pointer(message))
+	for {
+		c := *(*byte)(unsafe.Pointer(ptr))
+		if c == 0 {
+			break
+		}
+		b = append(b, c)
+		ptr++
+	}
+	msg := string(b)
+
+	msg = strings.TrimSpace(msg)
+	if msg == "" {
+		return
+	}
+
+	levelStr := "info"
+	switch cdio.LogLevel(level) {
+	case cdio.LogDebug:
+		levelStr = "debug"
+	case cdio.LogWarn:
+		levelStr = "warn"
+	case cdio.LogError, cdio.LogAssert:
+		levelStr = "error"
+	}
+
+	tuiProgram.Send(StatusMsg{
+		Component: "cdio",
+		Status:    fmt.Sprintf("[%s] %s", levelStr, msg),
+	})
+}
+
 func Start(ctx context.Context, cfg *Config, p *tea.Program) error {
 	AppConfig = cfg
 	ripdir = cfg.RipDir
 	encodedir = cfg.EncodeDir
 	tagdir = cfg.TagDir
 	finaldir = cfg.DoneDir
+	tuiProgram = p
 
 	if err := os.MkdirAll(ripdir, 0755); err != nil {
 		return fmt.Errorf("failed to create rip directory %s: %w", ripdir, err)
@@ -87,6 +131,10 @@ func Start(ctx context.Context, cfg *Config, p *tea.Program) error {
 	if err := mb5.Init(); err != nil {
 		return fmt.Errorf("failed to initialize mb5: %w", err)
 	}
+
+	// Register custom libcdio log handler to redirect stderr logs to TUI
+	callback := purego.NewCallback(cdioLogHandler)
+	cdio.LogSetHandler(callback)
 
 	var wg sync.WaitGroup
 
