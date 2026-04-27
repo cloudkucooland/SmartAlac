@@ -106,36 +106,25 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 
 	// 2. AcoustID Fingerprinting Fallback
 	if tid == "" && discID == "" && did == "" && c.Config.AcoustIDKey != "" {
-		var fpStr string
-		var dur int
-		var resolvedAID string
+	        var fpStr string
+	        var dur int
+	        var resolvedAID string
 
-		info, _ := d.Info()
-		if c.Cache != nil {
-			fpStr, dur, resolvedAID, _ = c.Cache.GetFingerprint(p, info.ModTime(), info.Size())
-		}
+	        chromaprinter, err := chromaprint.NewBuilder().WithPathToChromaprint(c.Config.FpcalcPath).Build()
+	        if err == nil {
+	                fingerprints, err := chromaprinter.CreateFingerprints(p)
+	                if err == nil && len(fingerprints) > 0 {
+	                        f := fingerprints[0]
+	                        fpStr = EncodeFingerprint(f.Fingerprint)
+	                        dur = int(f.DurationInSeconds)
+	                        resolvedAID, _ = c.AcoustIDLookup(c.ctx, fpStr, dur)
+	                }
+	        }
 
-		if fpStr == "" {
-			chromaprinter, err := chromaprint.NewBuilder().WithPathToChromaprint(c.Config.FpcalcPath).Build()
-			if err == nil {
-				fingerprints, err := chromaprinter.CreateFingerprints(p)
-				if err == nil && len(fingerprints) > 0 {
-					f := fingerprints[0]
-					fpStr = EncodeFingerprint(f.Fingerprint)
-					dur = int(f.DurationInSeconds)
-					resolvedAID, _ = c.AcoustIDLookup(c.ctx, fpStr, dur)
-					if c.Cache != nil {
-						c.Cache.SaveFingerprint(p, info.ModTime(), info.Size(), fpStr, dur, resolvedAID)
-					}
-				}
-			}
-		}
-
-		if resolvedAID != "" {
-			tid = resolvedAID
-		}
+	        if resolvedAID != "" {
+	                tid = resolvedAID
+	        }
 	}
-
 	// 3. Search MB Fallback
 	if tid == "" && discID == "" && did == "" && !c.Config.SkipMB {
 		artist := tags.AlbumArtist

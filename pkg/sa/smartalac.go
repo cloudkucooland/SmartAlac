@@ -34,7 +34,6 @@ type Curator struct {
 	Stats  Stats
 	rl     ratelimit.Limiter
 	dgRL   ratelimit.Limiter
-	Cache  *Cache
 
 	mb5query mb5.Query
 	dgClient interface{} // github.com/irlndts/go-discogs

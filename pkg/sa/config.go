@@ -24,15 +24,6 @@ func DefaultDataDir() string {
 	return filepath.Join(base, "SmartAlac")
 }
 
-func DefaultCachePath() string {
-	base, err := os.UserCacheDir()
-	if err != nil {
-		home, _ := os.UserHomeDir()
-		base = filepath.Join(home, ".cache")
-	}
-	return filepath.Join(base, "SmartAlac", "smartalac.db")
-}
-
 type SharedConfig struct {
 	FinalDir     string `json:"final_dir"`
 	AcoustIDKey  string `json:"acoustid_key"`

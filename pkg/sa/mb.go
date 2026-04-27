@@ -127,55 +127,27 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 	var metadata mb5.Metadata
 	var retryCount int
 
-	// TTL Cache check: If we've looked this up recently, don't hit the API again
-	if c.Cache != nil {
-		rm, err := c.Cache.GetRelease(releaseid)
-		if err == nil && time.Since(rm.LastChecked) < 30*24*time.Hour {
-			if c.Config.Debug {
-				log.Printf("skipping recently checked release %s (cached %v ago)", releaseid, time.Since(rm.LastChecked))
-			}
-			return in, false, nil
-		}
-	}
-
 	c.rl.Take()
 	for {
-		select {
-		case <-ctx.Done():
-			return in, false, ctx.Err()
-		default:
-		}
+	        select {
+	        case <-ctx.Done():
+	                return in, false, ctx.Err()
+	        default:
+	        }
 
-		// Prepare query parameters for explicit "inc" request
-		p1 := []byte("inc\x00")
-		v1 := []byte("artists labels recordings release-groups url-rels artist-credits work-rels artist-rels work-level-rels\x00")
+	        // Prepare query parameters for explicit "inc" request
+	        p1 := []byte("inc\x00")
+	        v1 := []byte("artists labels recordings release-groups url-rels artist-credits work-rels artist-rels work-level-rels\x00")
 
-		params := [1]*byte{&p1[0]}
-		values := [1]*byte{&v1[0]}
+	        params := [1]*byte{&p1[0]}
+	        values := [1]*byte{&v1[0]}
 
-		// Query libmusicbrainz5
-		metadata = mb5.QueryQuery(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params[0]), unsafe.Pointer(&values[0]))
-		if metadata != nil {
-			// Mark as checked in Cache
-			if c.Cache != nil {
-				rm := &ReleaseMetadata{
-					MBID: releaseid,
-				}
-				
-				ml := mb5.MetadataGetRelease(metadata)
-				if ml != nil {
-					medList := mb5.ReleaseGetMediumlist(ml)
-					rm.DiscCount = mb5.MediumListSize(medList)
-					for i := 0; i < rm.DiscCount; i++ {
-						m := mb5.MediumListItem(medList, i)
-						tl := mb5.MediumGetTracklist(m)
-						rm.TrackCount += mb5.TrackListSize(tl)
-					}
-				}
-				c.Cache.SaveRelease(rm)
-			}
-			break
-		}
+	        // Query libmusicbrainz5
+	        metadata = mb5.QueryQuery(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params[0]), unsafe.Pointer(&values[0]))
+	        if metadata != nil {
+	                break
+	        }
+
 		lastCode := mb5.QueryGetLasthttpcode(c.mb5query)
 		if lastCode == 503 && retryCount < 3 {
 			retryCount++
