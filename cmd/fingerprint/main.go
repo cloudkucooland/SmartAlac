@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"io/fs"
 	"log"
 	"os"
 	"os/signal"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/Sorrow446/go-mp4tag"
@@ -48,6 +49,12 @@ func main() {
 				Usage: "path to fpcalc binary",
 				Value: "fpcalc",
 			},
+			&cli.IntFlag{
+				Name:    "jobs",
+				Aliases: []string{"j"},
+				Usage:   "number of parallel hashing jobs",
+				Value:   runtime.NumCPU(),
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			shared := sa.LoadSharedConfig()
@@ -73,59 +80,91 @@ func main() {
 
 			dir := cmd.String("dir")
 			force := cmd.Bool("force")
+			numWorkers := int(cmd.Int("jobs"))
 
-			chromaprinter, err := chromaprint.NewBuilder().WithPathToChromaprint(cfg.FpcalcPath).Build()
-			if err != nil {
-				return fmt.Errorf("failed to init chromaprint: %w", err)
+			// Worker pool setup
+			paths := make(chan string, numWorkers*2)
+			var wg sync.WaitGroup
+			var errOnce sync.Once
+			var walkErr error
+
+			for i := 0; i < numWorkers; i++ {
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					
+					builder := chromaprint.NewBuilder().WithPathToChromaprint(cfg.FpcalcPath)
+					chromaprinter, err := builder.Build()
+					if err != nil {
+						errOnce.Do(func() { walkErr = err })
+						return
+					}
+
+					for p := range paths {
+						select {
+						case <-ctx.Done():
+							return
+						default:
+						}
+
+						info, err := os.Stat(p)
+						if err != nil {
+							continue
+						}
+						mtime := info.ModTime()
+						size := info.Size()
+
+						// Check Cache first
+						fp, dur, aid, err := cache.GetFingerprint(p, mtime, size)
+						if err == nil && !force {
+							_ = syncTags(ctx, p, fp, dur, aid)
+							continue
+						}
+
+						log.Printf("Hashing: %s", p)
+						fingerprints, err := chromaprinter.CreateFingerprints(p)
+						if err != nil {
+							log.Printf("failed to fingerprint %s: %v", p, err)
+							continue
+						}
+
+						if len(fingerprints) == 0 {
+							continue
+						}
+
+						f := fingerprints[0]
+						fpStr := sa.EncodeFingerprint(f.Fingerprint)
+						
+						var resolvedAID string
+						if cfg.AcoustIDKey != "" {
+							resolvedAID, _ = curator.AcoustIDLookup(ctx, fpStr, int(f.DurationInSeconds))
+						}
+
+						cache.SaveFingerprint(p, mtime, size, fpStr, int(f.DurationInSeconds), resolvedAID)
+						_ = syncTags(ctx, p, fpStr, int(f.DurationInSeconds), resolvedAID)
+					}
+				}()
 			}
 
-			return filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+			walkErr = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 				if err != nil {
 					return err
 				}
-				select {
-				case <-ctx.Done():
-					return ctx.Err()
-				default:
-				}
-
 				if d.IsDir() || !strings.HasSuffix(p, ".m4a") {
 					return nil
 				}
-
-				info, _ := d.Info()
-				mtime := info.ModTime()
-				size := info.Size()
-
-				// Check Cache first
-				fp, dur, aid, err := cache.GetFingerprint(p, mtime, size)
-				if err == nil && !force {
-					// Already cached, check if we need to write to file
-					return syncTags(ctx, p, fp, dur, aid)
-				}
-
-				log.Printf("Hashing: %s", p)
-				fingerprints, err := chromaprinter.CreateFingerprints(p)
-				if err != nil {
-					log.Printf("failed to fingerprint %s: %v", p, err)
-					return nil
-				}
-
-				if len(fingerprints) == 0 {
-					return nil
-				}
-
-				f := fingerprints[0]
-				fpStr := sa.EncodeFingerprint(f.Fingerprint)
 				
-				var resolvedAID string
-				if cfg.AcoustIDKey != "" {
-					resolvedAID, _ = curator.AcoustIDLookup(ctx, fpStr, int(f.DurationInSeconds))
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case paths <- p:
 				}
-
-				cache.SaveFingerprint(p, mtime, size, fpStr, int(f.DurationInSeconds), resolvedAID)
-				return syncTags(ctx, p, fpStr, int(f.DurationInSeconds), resolvedAID)
+				return nil
 			})
+
+			close(paths)
+			wg.Wait()
+			return walkErr
 		},
 	}
 
