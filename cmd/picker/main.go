@@ -75,7 +75,7 @@ func main() {
 			}
 
 			curator := sa.NewCurator(cfg)
-			
+
 			p := tea.NewProgram(picker.NewModel(curator, dir), tea.WithAltScreen())
 			if _, err := p.Run(); err != nil {
 				return err

@@ -30,7 +30,6 @@ func (c *Curator) UpdateFromDiscogs(ctx context.Context, in *mp4tag.MP4Tags, dis
 	}
 
 	out := *in
-	out.OtherCustom = make(map[string][]string) // Clear other custom to prevent duplication
 	if out.Custom == nil {
 		out.Custom = make(map[string]string)
 	} else {
@@ -110,10 +109,12 @@ func (c *Curator) UpdateFromDiscogs(ctx context.Context, in *mp4tag.MP4Tags, dis
 		}
 	}
 
+	c.cleanupOtherCustom(&out)
+	c.uniquifyOtherCustom(&out)
+
 	changed := !tagsEquivalent(in, &out)
 	return &out, changed, nil
 }
-
 func (c *Curator) SearchDiscogs(ctx context.Context, artist, album, barcode string) ([]discogs.Result, error) {
 	if c.dgClient == nil {
 		return nil, fmt.Errorf("discogs client not initialized")
@@ -134,7 +135,7 @@ func (c *Curator) SearchDiscogs(ctx context.Context, artist, album, barcode stri
 		Barcode:      barcode,
 		Type:         "release",
 	}
-	
+
 	res, err := client.Search(request)
 	if err != nil {
 		return nil, err

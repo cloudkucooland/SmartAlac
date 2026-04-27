@@ -106,29 +106,31 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 
 	// 2. AcoustID Fingerprinting Fallback
 	if tid == "" && discID == "" && did == "" && c.Config.AcoustIDKey != "" {
-	        var fpStr string
-	        var dur int
-	        var resolvedAID string
+		var fpStr string
+		var dur int
+		var resolvedAID string
 
-	        chromaprinter, err := chromaprint.NewBuilder().WithPathToChromaprint(c.Config.FpcalcPath).Build()
-	        if err == nil {
-	                fingerprints, err := chromaprinter.CreateFingerprints(p)
-	                if err == nil && len(fingerprints) > 0 {
-	                        f := fingerprints[0]
-	                        fpStr = EncodeFingerprint(f.Fingerprint)
-	                        dur = int(f.DurationInSeconds)
-	                        resolvedAID, _ = c.AcoustIDLookup(c.ctx, fpStr, dur)
-	                }
-	        }
+		chromaprinter, err := chromaprint.NewBuilder().WithPathToChromaprint(c.Config.FpcalcPath).Build()
+		if err == nil {
+			fingerprints, err := chromaprinter.CreateFingerprints(p)
+			if err == nil && len(fingerprints) > 0 {
+				f := fingerprints[0]
+				fpStr = EncodeFingerprint(f.Fingerprint)
+				dur = int(f.DurationInSeconds)
+				resolvedAID, _ = c.AcoustIDLookup(c.ctx, fpStr, dur)
+			}
+		}
 
-	        if resolvedAID != "" {
-	                tid = resolvedAID
-	        }
+		if resolvedAID != "" {
+			tid = resolvedAID
+		}
 	}
 	// 3. Search MB Fallback
 	if tid == "" && discID == "" && did == "" && !c.Config.SkipMB {
 		artist := tags.AlbumArtist
-		if artist == "" { artist = tags.Artist }
+		if artist == "" {
+			artist = tags.Artist
+		}
 		album := tags.Album
 		if artist != "" && album != "" {
 			results, err := c.SearchMB(c.ctx, artist, album)
@@ -144,15 +146,19 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 	// 4. Search Discogs Fallback
 	if tid == "" && discID == "" && did == "" && c.dgClient != nil {
 		artist := tags.AlbumArtist
-		if artist == "" { artist = tags.Artist }
+		if artist == "" {
+			artist = tags.Artist
+		}
 		album := tags.Album
 		if artist != "" && album != "" {
-		        barcode := tags.Custom["BARCODE"]
-		        if barcode == "" { barcode = tags.Custom["MCN"] }
-		        results, err := c.SearchDiscogs(c.ctx, artist, album, barcode)
-		        if err == nil && len(results) > 0 {
-		                did = strconv.Itoa(results[0].ID)
-		        }
+			barcode := tags.Custom["BARCODE"]
+			if barcode == "" {
+				barcode = tags.Custom["MCN"]
+			}
+			results, err := c.SearchDiscogs(c.ctx, artist, album, barcode)
+			if err == nil && len(results) > 0 {
+				did = strconv.Itoa(results[0].ID)
+			}
 		}
 	}
 

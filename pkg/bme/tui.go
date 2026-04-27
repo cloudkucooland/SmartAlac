@@ -82,8 +82,8 @@ func NewModel() model {
 		encoderStatus:    "Idle",
 		taggerStatus:     "Idle",
 		paranoiaMode:     GetParanoiaName(),
-		encoderProgress: progress.New(progress.WithDefaultGradient()),
-		taggerProgress:  progress.New(progress.WithDefaultGradient()),
+		encoderProgress:  progress.New(progress.WithDefaultGradient()),
+		taggerProgress:   progress.New(progress.WithDefaultGradient()),
 		logs:             make([]string, 0),
 	}
 }

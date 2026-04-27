@@ -47,47 +47,47 @@ const SeekSet int = 0 // libc
 
 var (
 	// libcdio.so
-	Open                    func(string, unsafe.Pointer) Device
-	OpenAm                  func(string, int, unsafe.Pointer) Device
-	LibInit                 func() bool
-	Destroy                 func(Device)
-	GetDefaultDevice        func(Device) string
-	GetFirstTrackNum        func(Device) Track
-	GetLastTrackNum         func(Device) Track
-	GetNumTracks            func(Device) Track
-	GetCdtext               func(Device) Cdtext
-	GetCdtextRaw            func(Device) unsafe.Pointer
-	CdtextGet               func(Cdtext, CdtextField, Track) string
-	GetMcn                  func(Device) string
-	GetTrackIsrc            func(Device, Track) string
-	GetTrackLba             func(Device, Track) int
-	GetTrackLsn             func(Device, Track) Lsn
-	GetTrackSecCount        func(Device, Track) uint32
-	GetTrackChannels        func(Device, Track) int
-	GetTrackCopyPermit      func(Device, Track) int
-	GetTrackFormat          func(Device, Track) int
-	GetTrackPreemphasis     func(Device, Track) int
-	GetTrackLastLsn         func(Device, Track) Lsn
-	GetDiscLastLsn          func(Device) Lsn
-	GetDiscmode             func(Device) int
-	GetDriverId             func(Device) int
-	GetDriverName           func(Device) string
-	GetHwinfo               func(Device) unsafe.Pointer
-	GetMediaChanged         func(Device) bool
-	EjectMedia              func(Device) int
-	EjectMediaDrive         func(string) int
-	CloseTray               func(string, unsafe.Pointer) int
-	SetSpeed                func(Device, int) int
-	GetDevices              func(int) **byte
-	GetDevicesRet           func(int, *uint32) **byte
-	GetDevicesWithCap       func(unsafe.Pointer, int) **byte
-	FreeDeviceList          func(**byte)
-	IsDevice                func(string) bool
-	IsDiscmodeCdrom         func(int) bool
-	IsDiscmodeDvd           func(int) bool
-	ReadAudioSector         func(Device, unsafe.Pointer, Lsn) int
-	ReadAudioSectors        func(Device, unsafe.Pointer, Lsn, uint32) int
-	LogSetHandler           func(uintptr)
+	Open                func(string, unsafe.Pointer) Device
+	OpenAm              func(string, int, unsafe.Pointer) Device
+	LibInit             func() bool
+	Destroy             func(Device)
+	GetDefaultDevice    func(Device) string
+	GetFirstTrackNum    func(Device) Track
+	GetLastTrackNum     func(Device) Track
+	GetNumTracks        func(Device) Track
+	GetCdtext           func(Device) Cdtext
+	GetCdtextRaw        func(Device) unsafe.Pointer
+	CdtextGet           func(Cdtext, CdtextField, Track) string
+	GetMcn              func(Device) string
+	GetTrackIsrc        func(Device, Track) string
+	GetTrackLba         func(Device, Track) int
+	GetTrackLsn         func(Device, Track) Lsn
+	GetTrackSecCount    func(Device, Track) uint32
+	GetTrackChannels    func(Device, Track) int
+	GetTrackCopyPermit  func(Device, Track) int
+	GetTrackFormat      func(Device, Track) int
+	GetTrackPreemphasis func(Device, Track) int
+	GetTrackLastLsn     func(Device, Track) Lsn
+	GetDiscLastLsn      func(Device) Lsn
+	GetDiscmode         func(Device) int
+	GetDriverId         func(Device) int
+	GetDriverName       func(Device) string
+	GetHwinfo           func(Device) unsafe.Pointer
+	GetMediaChanged     func(Device) bool
+	EjectMedia          func(Device) int
+	EjectMediaDrive     func(string) int
+	CloseTray           func(string, unsafe.Pointer) int
+	SetSpeed            func(Device, int) int
+	GetDevices          func(int) **byte
+	GetDevicesRet       func(int, *uint32) **byte
+	GetDevicesWithCap   func(unsafe.Pointer, int) **byte
+	FreeDeviceList      func(**byte)
+	IsDevice            func(string) bool
+	IsDiscmodeCdrom     func(int) bool
+	IsDiscmodeDvd       func(int) bool
+	ReadAudioSector     func(Device, unsafe.Pointer, Lsn) int
+	ReadAudioSectors    func(Device, unsafe.Pointer, Lsn, uint32) int
+	LogSetHandler       func(uintptr)
 
 	// Mmc specific (often part of libcdio)
 	MmcGetMcn        func(Device) string
@@ -123,16 +123,16 @@ var (
 	CddapFindACdrom       func() string
 
 	// libcdio_paranoia.so
-	ParanoiaInit            func(Cdda) Paranoia
-	ParanoiaFree            func(Paranoia)
-	ParanoiaModeset         func(Paranoia, ParanoiaMode)
-	ParanoiaSeek            func(Paranoia, Lsn, int) Lsn
-	ParanoiaRead            func(Paranoia, unsafe.Pointer) *[CDIO_CD_FRAMESIZE_RAW]byte
-	ParanoiaReadLimited     func(Paranoia, unsafe.Pointer, int) *[CDIO_CD_FRAMESIZE_RAW]byte
-	ParanoiaOverlapset      func(Paranoia, int)
-	ParanoiaSetRange        func(Paranoia, Track, Track)
-	ParanoiaCachemodelSize  func(Paranoia, int)
-	ParanoiaVersion         func() string
+	ParanoiaInit           func(Cdda) Paranoia
+	ParanoiaFree           func(Paranoia)
+	ParanoiaModeset        func(Paranoia, ParanoiaMode)
+	ParanoiaSeek           func(Paranoia, Lsn, int) Lsn
+	ParanoiaRead           func(Paranoia, unsafe.Pointer) *[CDIO_CD_FRAMESIZE_RAW]byte
+	ParanoiaReadLimited    func(Paranoia, unsafe.Pointer, int) *[CDIO_CD_FRAMESIZE_RAW]byte
+	ParanoiaOverlapset     func(Paranoia, int)
+	ParanoiaSetRange       func(Paranoia, Track, Track)
+	ParanoiaCachemodelSize func(Paranoia, int)
+	ParanoiaVersion        func() string
 )
 
 func Init() error {

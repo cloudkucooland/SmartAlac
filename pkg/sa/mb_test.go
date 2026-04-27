@@ -1,6 +1,9 @@
 package sa
 
-import "testing"
+import (
+	"github.com/Sorrow446/go-mp4tag"
+	"testing"
+)
 
 func TestInferTrackInfo(t *testing.T) {
 	cases := []struct {
@@ -18,7 +21,7 @@ func TestInferTrackInfo(t *testing.T) {
 		{"2-01 CD2 Track 1.m4a", 2, 1},
 		{"invalid-format.m4a", 0, 0},
 		{"10-25 Huge Numbers.m4a", 10, 25},
-		{"-5 Negative.m4a", 0, 5}, // Splits into "" and "5", strconv.Atoi("") fails for disc, succeeds for track
+		{"-5 Negative.m4a", 0, 5},
 	}
 
 	for _, c := range cases {
@@ -27,4 +30,55 @@ func TestInferTrackInfo(t *testing.T) {
 			t.Errorf("inferTrackInfo(%q) == (%d, %d), want (%d, %d)", c.name, gotDisc, gotTrack, c.wantDisc, c.wantTrack)
 		}
 	}
+}
+
+func TestTagCleanup(t *testing.T) {
+	c := &Curator{}
+
+	t.Run("cleanupOtherCustom", func(t *testing.T) {
+		tags := &mp4tag.MP4Tags{
+			Custom: map[string]string{
+				"ENGINEER": "Dave Cook",
+			},
+			OtherCustom: map[string][]string{
+				"ENGINEER":      {"Dennice Brown", "Dave Cook", "Frank Filipetti"},
+				"CATALOGNUMBER": {"9 60815-2"},
+			},
+		}
+
+		c.cleanupOtherCustom(tags)
+
+		if _, ok := tags.OtherCustom["ENGINEER"]; ok {
+			t.Error("ENGINEER should have been removed from OtherCustom because it exists in Custom")
+		}
+		if _, ok := tags.OtherCustom["CATALOGNUMBER"]; !ok {
+			t.Error("CATALOGNUMBER should have been preserved in OtherCustom")
+		}
+	})
+
+	t.Run("uniquifyOtherCustom", func(t *testing.T) {
+		tags := &mp4tag.MP4Tags{
+			Custom: map[string]string{
+				"LABEL": "Elektra",
+			},
+			OtherCustom: map[string][]string{
+				"MIXER":         {"Frank Wolf", "Frank Wolf", "Frank Wolf"},
+				"CATALOGNUMBER": {"9 60738-1", "9 60738-1"},
+				"LABEL":         {"Elektra", "Warner"},
+			},
+		}
+
+		c.uniquifyOtherCustom(tags)
+
+		if len(tags.OtherCustom["MIXER"]) != 1 || tags.OtherCustom["MIXER"][0] != "Frank Wolf" {
+			t.Errorf("MIXER should be uniquely Frank Wolf, got %v", tags.OtherCustom["MIXER"])
+		}
+		if len(tags.OtherCustom["CATALOGNUMBER"]) != 1 || tags.OtherCustom["CATALOGNUMBER"][0] != "9 60738-1" {
+			t.Errorf("CATALOGNUMBER should be uniquely 9 60738-1, got %v", tags.OtherCustom["CATALOGNUMBER"])
+		}
+		// LABEL in OtherCustom should have "Elektra" removed because it is in Custom, and "Warner" should remain.
+		if len(tags.OtherCustom["LABEL"]) != 1 || tags.OtherCustom["LABEL"][0] != "Warner" {
+			t.Errorf("LABEL in OtherCustom should have Warner left, got %v", tags.OtherCustom["LABEL"])
+		}
+	})
 }

@@ -11,7 +11,7 @@ import (
 func TestMusicBrainzDataDump(t *testing.T) {
 	// Only run if specifically requested, as it needs the shared library
 	// go test -v -run TestMusicBrainzDataDump
-	
+
 	err := mb5.Init()
 	if err != nil {
 		t.Skip("libmusicbrainz5 not found, skipping live test")
@@ -60,7 +60,7 @@ func TestMusicBrainzDataDump(t *testing.T) {
 			name := mb5.String(mb5.NamecreditGetName, unsafe.Pointer(nc))
 			join := mb5.String(mb5.NamecreditGetJoinphrase, unsafe.Pointer(nc))
 			fmt.Printf("  Credit %d: Name=%q, Join=%q\n", i, name, join)
-			
+
 			artist := mb5.NamecreditGetArtist(nc)
 			if artist != nil {
 				aname := mb5.String(mb5.ArtistGetName, unsafe.Pointer(artist))

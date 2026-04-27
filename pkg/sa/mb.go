@@ -99,7 +99,7 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 				}
 
 				return &out, true, nil
-				}
+			}
 
 		}
 		return in, false, nil
@@ -129,24 +129,24 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 
 	c.rl.Take()
 	for {
-	        select {
-	        case <-ctx.Done():
-	                return in, false, ctx.Err()
-	        default:
-	        }
+		select {
+		case <-ctx.Done():
+			return in, false, ctx.Err()
+		default:
+		}
 
-	        // Prepare query parameters for explicit "inc" request
-	        p1 := []byte("inc\x00")
-	        v1 := []byte("artists labels recordings release-groups url-rels artist-credits work-rels artist-rels work-level-rels\x00")
+		// Prepare query parameters for explicit "inc" request
+		p1 := []byte("inc\x00")
+		v1 := []byte("artists labels recordings release-groups url-rels artist-credits work-rels artist-rels work-level-rels\x00")
 
-	        params := [1]*byte{&p1[0]}
-	        values := [1]*byte{&v1[0]}
+		params := [1]*byte{&p1[0]}
+		values := [1]*byte{&v1[0]}
 
-	        // Query libmusicbrainz5
-	        metadata = mb5.QueryQuery(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params[0]), unsafe.Pointer(&values[0]))
-	        if metadata != nil {
-	                break
-	        }
+		// Query libmusicbrainz5
+		metadata = mb5.QueryQuery(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params[0]), unsafe.Pointer(&values[0]))
+		if metadata != nil {
+			break
+		}
 
 		lastCode := mb5.QueryGetLasthttpcode(c.mb5query)
 		if lastCode == 503 && retryCount < 3 {
@@ -182,9 +182,7 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 
 	// Start with a copy of input tags to preserve existing data
 	out := *in
-	out.OtherCustom = make(map[string][]string) // Clear other custom to prevent duplication
 	if out.Custom == nil {
-
 		out.Custom = make(map[string]string)
 	} else {
 		// Deep copy the map to avoid side effects
@@ -357,6 +355,9 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 	if out.AlbumArtistSort == "" && out.AlbumArtist != "" {
 		out.AlbumArtistSort = out.AlbumArtist
 	}
+
+	c.cleanupOtherCustom(&out)
+	c.uniquifyOtherCustom(&out)
 
 	if c.Config.Debug {
 		temp := out
@@ -635,6 +636,44 @@ func (c *Curator) fmtCatalogNumbersMB5(liList mb5.LabelInfoList) string {
 	return strings.Join(cats, "; ")
 }
 
+func (c *Curator) cleanupOtherCustom(tags *mp4tag.MP4Tags) {
+	if tags.OtherCustom == nil {
+		return
+	}
+	for k := range tags.Custom {
+		delete(tags.OtherCustom, k)
+	}
+}
+
+func (c *Curator) uniquifyOtherCustom(tags *mp4tag.MP4Tags) {
+	if tags.OtherCustom == nil {
+		return
+	}
+
+	for k, vals := range tags.OtherCustom {
+		seen := make(map[string]bool)
+		unique := make([]string, 0, len(vals))
+
+		// If it's also in Custom, we definitely don't want it in OtherCustom (duplication)
+		if customVal, ok := tags.Custom[k]; ok {
+			seen[customVal] = true
+		}
+
+		for _, v := range vals {
+			if !seen[v] {
+				seen[v] = true
+				unique = append(unique, v)
+			}
+		}
+
+		if len(unique) == 0 {
+			delete(tags.OtherCustom, k)
+		} else {
+			tags.OtherCustom[k] = unique
+		}
+	}
+}
+
 func (c *Curator) UpdateFromDiscID(ctx context.Context, in *mp4tag.MP4Tags, discid string) (*mp4tag.MP4Tags, bool, error) {
 	if c.mb5query == nil {
 		return in, false, fmt.Errorf("mb5 query not initialized")
@@ -666,7 +705,7 @@ func (c *Curator) UpdateFromDiscID(ctx context.Context, in *mp4tag.MP4Tags, disc
 		if lastCode == 503 && retryCount < 3 {
 			retryCount++
 			log.Printf("MusicBrainz returned 503 (discid), retrying in 5 seconds (attempt %d/3)...", retryCount)
-			
+
 			select {
 			case <-time.After(5 * time.Second):
 			case <-ctx.Done():

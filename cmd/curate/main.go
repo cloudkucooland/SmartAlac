@@ -63,55 +63,54 @@ func main() {
 				Sources: cli.EnvVars("ACOUSTID_KEY"),
 			},
 			&cli.StringFlag{
-			        Name:  "discogs-token",
-			        Usage: "Discogs API token",
+				Name:  "discogs-token",
+				Usage: "Discogs API token",
 			},
 			&cli.StringFlag{
-			        Name:  "fpcalc",
-			        Usage: "path to fpcalc binary",
-			        Value: "fpcalc",
+				Name:  "fpcalc",
+				Usage: "path to fpcalc binary",
+				Value: "fpcalc",
 			},
-			},
-			Action: func(ctx context.Context, cmd *cli.Command) error {
+		},
+		Action: func(ctx context.Context, cmd *cli.Command) error {
 
 			shared := sa.LoadSharedConfig()
 
 			cfg := sa.Config{
-			        DryRun:       cmd.Bool("dryrun"),
-			        Debug:        cmd.Bool("debug"),
-			        SkipMB:       cmd.Bool("skipmb"),
-			        SkipMove:     cmd.Bool("skipmove"),
-			        Overwrite:    cmd.Bool("overwrite"),
-			        FinalDir:     cmd.String("finaldir"),
-			        AcoustIDKey:  cmd.String("acoustid-key"),
-			        DiscogsToken: cmd.String("discogs-token"),
-			        FpcalcPath:   cmd.String("fpcalc"),
+				DryRun:       cmd.Bool("dryrun"),
+				Debug:        cmd.Bool("debug"),
+				SkipMB:       cmd.Bool("skipmb"),
+				SkipMove:     cmd.Bool("skipmove"),
+				Overwrite:    cmd.Bool("overwrite"),
+				FinalDir:     cmd.String("finaldir"),
+				AcoustIDKey:  cmd.String("acoustid-key"),
+				DiscogsToken: cmd.String("discogs-token"),
+				FpcalcPath:   cmd.String("fpcalc"),
 			}
 
 			if cfg.FinalDir == "" {
-			        cfg.FinalDir = shared.FinalDir
+				cfg.FinalDir = shared.FinalDir
 			}
 			if cfg.AcoustIDKey == "" {
-			        cfg.AcoustIDKey = shared.AcoustIDKey
+				cfg.AcoustIDKey = shared.AcoustIDKey
 			}
 			if cfg.DiscogsToken == "" {
-			        cfg.DiscogsToken = shared.DiscogsToken
+				cfg.DiscogsToken = shared.DiscogsToken
 			}
 			if cfg.FpcalcPath == "fpcalc" && shared.FpcalcPath != "" {
-			        cfg.FpcalcPath = shared.FpcalcPath
+				cfg.FpcalcPath = shared.FpcalcPath
 			}
 
 			curator := sa.NewCurator(cfg)
 
 			dir := cmd.String("dir")
 			if err := curator.WalkTree(ctx, dir); err != nil {
-			        return err
+				return err
 			}
 
 			curator.ShowStats()
 			return nil
-			},
-
+		},
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)

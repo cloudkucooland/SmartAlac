@@ -81,12 +81,12 @@ var (
 	QueryDelete                  func(Query)
 	QuerySetUsername             func(Query, string)
 	QuerySetPassword             func(Query, string)
-	QuerySetProxyhost           func(Query, string)
-	QuerySetProxyport           func(Query, int)
-	QuerySetProxyusername       func(Query, string)
-	QuerySetProxypassword       func(Query, string)
-	QueryLookupDiscid           func(Query, string) ReleaseList
-	QueryLookupRelease          func(Query, string) Release
+	QuerySetProxyhost            func(Query, string)
+	QuerySetProxyport            func(Query, int)
+	QuerySetProxyusername        func(Query, string)
+	QuerySetProxypassword        func(Query, string)
+	QueryLookupDiscid            func(Query, string) ReleaseList
+	QueryLookupRelease           func(Query, string) Release
 	QueryQuery                   func(Query, string, string, string, int, unsafe.Pointer, unsafe.Pointer) Metadata
 	QueryAddCollectionEntries    func(Query, Collection, int, int) bool
 	QueryDeleteCollectionEntries func(Query, Collection, int, int) bool
@@ -104,34 +104,34 @@ var (
 	EntityExtElementValue   func(unsafe.Pointer, int, *byte, int) int
 
 	// Alias
-	AliasClone        func(Alias) Alias
-	AliasDelete       func(Alias)
-	AliasGetLocale    func(unsafe.Pointer, *byte, int) int
-	AliasGetText      func(unsafe.Pointer, *byte, int) int
-	AliasGetSortname  func(unsafe.Pointer, *byte, int) int
-	AliasGetType      func(unsafe.Pointer, *byte, int) int
-	AliasGetPrimary   func(unsafe.Pointer, *byte, int) int
-	AliasGetBegindate func(unsafe.Pointer, *byte, int) int
-	AliasGetEnddate   func(unsafe.Pointer, *byte, int) int
-	AliasListSize     func(AliasList) int
-	AliasListItem     func(AliasList, int) Alias
-	AliasListClone    func(AliasList) AliasList
-	AliasListDelete   func(AliasList)
-	AliasListGetCount func(AliasList) int
+	AliasClone         func(Alias) Alias
+	AliasDelete        func(Alias)
+	AliasGetLocale     func(unsafe.Pointer, *byte, int) int
+	AliasGetText       func(unsafe.Pointer, *byte, int) int
+	AliasGetSortname   func(unsafe.Pointer, *byte, int) int
+	AliasGetType       func(unsafe.Pointer, *byte, int) int
+	AliasGetPrimary    func(unsafe.Pointer, *byte, int) int
+	AliasGetBegindate  func(unsafe.Pointer, *byte, int) int
+	AliasGetEnddate    func(unsafe.Pointer, *byte, int) int
+	AliasListSize      func(AliasList) int
+	AliasListItem      func(AliasList, int) Alias
+	AliasListClone     func(AliasList) AliasList
+	AliasListDelete    func(AliasList)
+	AliasListGetCount  func(AliasList) int
 	AliasListGetOffset func(AliasList) int
 
 	// Annotation
-	AnnotationClone     func(Annotation) Annotation
-	AnnotationDelete    func(Annotation)
-	AnnotationGetType   func(unsafe.Pointer, *byte, int) int
-	AnnotationGetEntity func(unsafe.Pointer, *byte, int) int
-	AnnotationGetName   func(unsafe.Pointer, *byte, int) int
-	AnnotationGetText   func(unsafe.Pointer, *byte, int) int
-	AnnotationListSize  func(AnnotationList) int
-	AnnotationListItem  func(AnnotationList, int) Annotation
-	AnnotationListClone func(AnnotationList) AnnotationList
-	AnnotationListDelete func(AnnotationList)
-	AnnotationListGetCount func(AnnotationList) int
+	AnnotationClone         func(Annotation) Annotation
+	AnnotationDelete        func(Annotation)
+	AnnotationGetType       func(unsafe.Pointer, *byte, int) int
+	AnnotationGetEntity     func(unsafe.Pointer, *byte, int) int
+	AnnotationGetName       func(unsafe.Pointer, *byte, int) int
+	AnnotationGetText       func(unsafe.Pointer, *byte, int) int
+	AnnotationListSize      func(AnnotationList) int
+	AnnotationListItem      func(AnnotationList, int) Annotation
+	AnnotationListClone     func(AnnotationList) AnnotationList
+	AnnotationListDelete    func(AnnotationList)
+	AnnotationListGetCount  func(AnnotationList) int
 	AnnotationListGetOffset func(AnnotationList) int
 
 	// Artist
@@ -181,96 +181,96 @@ var (
 	AttributeListGetOffset func(AttributeList) int
 
 	// CDStub
-	CdstubClone        func(CDStub) CDStub
-	CdstubDelete       func(CDStub)
-	CdstubGetID        func(unsafe.Pointer, *byte, int) int
-	CdstubGetTitle     func(unsafe.Pointer, *byte, int) int
-	CdstubGetArtist    func(unsafe.Pointer, *byte, int) int
-	CdstubGetBarcode   func(unsafe.Pointer, *byte, int) int
-	CdstubGetComment   func(unsafe.Pointer, *byte, int) int
+	CdstubClone             func(CDStub) CDStub
+	CdstubDelete            func(CDStub)
+	CdstubGetID             func(unsafe.Pointer, *byte, int) int
+	CdstubGetTitle          func(unsafe.Pointer, *byte, int) int
+	CdstubGetArtist         func(unsafe.Pointer, *byte, int) int
+	CdstubGetBarcode        func(unsafe.Pointer, *byte, int) int
+	CdstubGetComment        func(unsafe.Pointer, *byte, int) int
 	CdstubGetNonmbtracklist func(CDStub) NonMBTrackList
-	CdstubListSize     func(CDStubList) int
-	CdstubListItem     func(CDStubList, int) CDStub
-	CdstubListClone    func(CDStubList) CDStubList
-	CdstubListDelete   func(CDStubList)
-	CdstubListGetCount func(CDStubList) int
-	CdstubListGetOffset func(CDStubList) int
+	CdstubListSize          func(CDStubList) int
+	CdstubListItem          func(CDStubList, int) CDStub
+	CdstubListClone         func(CDStubList) CDStubList
+	CdstubListDelete        func(CDStubList)
+	CdstubListGetCount      func(CDStubList) int
+	CdstubListGetOffset     func(CDStubList) int
 
 	// Collection
-	CollectionClone        func(Collection) Collection
-	CollectionDelete       func(Collection)
-	CollectionGetID        func(unsafe.Pointer, *byte, int) int
-	CollectionGetName      func(unsafe.Pointer, *byte, int) int
-	CollectionGetEditor    func(unsafe.Pointer, *byte, int) int
+	CollectionClone          func(Collection) Collection
+	CollectionDelete         func(Collection)
+	CollectionGetID          func(unsafe.Pointer, *byte, int) int
+	CollectionGetName        func(unsafe.Pointer, *byte, int) int
+	CollectionGetEditor      func(unsafe.Pointer, *byte, int) int
 	CollectionGetReleaselist func(Collection) ReleaseList
-	CollectionListSize     func(CollectionList) int
-	CollectionListItem     func(CollectionList, int) Collection
-	CollectionListClone    func(CollectionList) CollectionList
-	CollectionListDelete   func(CollectionList)
-	CollectionListGetCount func(CollectionList) int
-	CollectionListGetOffset func(CollectionList) int
+	CollectionListSize       func(CollectionList) int
+	CollectionListItem       func(CollectionList, int) Collection
+	CollectionListClone      func(CollectionList) CollectionList
+	CollectionListDelete     func(CollectionList)
+	CollectionListGetCount   func(CollectionList) int
+	CollectionListGetOffset  func(CollectionList) int
 
 	// Disc
-	DiscClone        func(Disc) Disc
-	DiscDelete       func(Disc)
-	DiscGetID        func(unsafe.Pointer, *byte, int) int
-	DiscGetSectors   func(Disc) int
-	DiscGetOffsetlist func(Disc) OffsetList
+	DiscClone          func(Disc) Disc
+	DiscDelete         func(Disc)
+	DiscGetID          func(unsafe.Pointer, *byte, int) int
+	DiscGetSectors     func(Disc) int
+	DiscGetOffsetlist  func(Disc) OffsetList
 	DiscGetReleaselist func(Disc) ReleaseList
-	DiscListSize     func(DiscList) int
-	DiscListItem     func(DiscList, int) Disc
-	DiscListClone    func(DiscList) DiscList
-	DiscListDelete   func(DiscList)
-	DiscListGetCount func(DiscList) int
-	DiscListGetOffset func(DiscList) int
+	DiscListSize       func(DiscList) int
+	DiscListItem       func(DiscList, int) Disc
+	DiscListClone      func(DiscList) DiscList
+	DiscListDelete     func(DiscList)
+	DiscListGetCount   func(DiscList) int
+	DiscListGetOffset  func(DiscList) int
 
 	// FreeDBDisc
-	FreedbdiscClone        func(FreeDBDisc) FreeDBDisc
-	FreedbdiscDelete       func(FreeDBDisc)
-	FreedbdiscGetID        func(unsafe.Pointer, *byte, int) int
-	FreedbdiscGetTitle     func(unsafe.Pointer, *byte, int) int
-	FreedbdiscGetArtist    func(unsafe.Pointer, *byte, int) int
-	FreedbdiscGetCategory  func(unsafe.Pointer, *byte, int) int
-	FreedbdiscGetYear      func(unsafe.Pointer, *byte, int) int
+	FreedbdiscClone             func(FreeDBDisc) FreeDBDisc
+	FreedbdiscDelete            func(FreeDBDisc)
+	FreedbdiscGetID             func(unsafe.Pointer, *byte, int) int
+	FreedbdiscGetTitle          func(unsafe.Pointer, *byte, int) int
+	FreedbdiscGetArtist         func(unsafe.Pointer, *byte, int) int
+	FreedbdiscGetCategory       func(unsafe.Pointer, *byte, int) int
+	FreedbdiscGetYear           func(unsafe.Pointer, *byte, int) int
 	FreedbdiscGetNonmbtracklist func(FreeDBDisc) NonMBTrackList
-	FreedbdiscListSize     func(FreeDBDiscList) int
-	FreedbdiscListItem     func(FreeDBDiscList, int) FreeDBDisc
-	FreedbdiscListClone    func(FreeDBDiscList) FreeDBDiscList
-	FreedbdiscListDelete   func(FreeDBDiscList)
-	FreedbdiscListGetCount func(FreeDBDiscList) int
-	FreedbdiscListGetOffset func(FreeDBDiscList) int
+	FreedbdiscListSize          func(FreeDBDiscList) int
+	FreedbdiscListItem          func(FreeDBDiscList, int) FreeDBDisc
+	FreedbdiscListClone         func(FreeDBDiscList) FreeDBDiscList
+	FreedbdiscListDelete        func(FreeDBDiscList)
+	FreedbdiscListGetCount      func(FreeDBDiscList) int
+	FreedbdiscListGetOffset     func(FreeDBDiscList) int
 
 	// IPI
-	IpiClone        func(IPI) IPI
-	IpiDelete       func(IPI)
-	IpiGetIpi       func(unsafe.Pointer, *byte, int) int
-	IpiListSize     func(IPIList) int
-	IpiListItem     func(IPIList, int) IPI
-	IpiListClone    func(IPIList) IPIList
-	IpiListDelete   func(IPIList)
-	IpiListGetCount func(IPIList) int
+	IpiClone         func(IPI) IPI
+	IpiDelete        func(IPI)
+	IpiGetIpi        func(unsafe.Pointer, *byte, int) int
+	IpiListSize      func(IPIList) int
+	IpiListItem      func(IPIList, int) IPI
+	IpiListClone     func(IPIList) IPIList
+	IpiListDelete    func(IPIList)
+	IpiListGetCount  func(IPIList) int
 	IpiListGetOffset func(IPIList) int
 
 	// ISRC
-	ISRCClone        func(ISRC) ISRC
-	ISRCDelete       func(ISRC)
-	ISRCGetID        func(unsafe.Pointer, *byte, int) int
-	ISRCListSize     func(ISRCList) int
-	ISRCListItem     func(ISRCList, int) ISRC
-	ISRCListClone    func(ISRCList) ISRCList
-	ISRCListDelete   func(ISRCList)
-	ISRCListGetCount func(ISRCList) int
+	ISRCClone         func(ISRC) ISRC
+	ISRCDelete        func(ISRC)
+	ISRCGetID         func(unsafe.Pointer, *byte, int) int
+	ISRCListSize      func(ISRCList) int
+	ISRCListItem      func(ISRCList, int) ISRC
+	ISRCListClone     func(ISRCList) ISRCList
+	ISRCListDelete    func(ISRCList)
+	ISRCListGetCount  func(ISRCList) int
 	ISRCListGetOffset func(ISRCList) int
 
 	// ISWC
-	ISWCClone        func(ISWC) ISWC
-	ISWCDelete       func(ISWC)
-	ISWCGetIswc      func(unsafe.Pointer, *byte, int) int
-	ISWCListSize     func(ISWCList) int
-	ISWCListItem     func(ISWCList, int) ISWC
-	ISWCListClone    func(ISWCList) ISWCList
-	ISWCListDelete   func(ISWCList)
-	ISWCListGetCount func(ISWCList) int
+	ISWCClone         func(ISWC) ISWC
+	ISWCDelete        func(ISWC)
+	ISWCGetIswc       func(unsafe.Pointer, *byte, int) int
+	ISWCListSize      func(ISWCList) int
+	ISWCListItem      func(ISWCList, int) ISWC
+	ISWCListClone     func(ISWCList) ISWCList
+	ISWCListDelete    func(ISWCList)
+	ISWCListGetCount  func(ISWCList) int
 	ISWCListGetOffset func(ISWCList) int
 
 	// Label
@@ -300,133 +300,133 @@ var (
 	LabelListGetOffset       func(LabelList) int
 
 	// LabelInfo
-	LabelinfoClone           func(LabelInfo) LabelInfo
-	LabelinfoDelete          func(LabelInfo)
+	LabelinfoClone            func(LabelInfo) LabelInfo
+	LabelinfoDelete           func(LabelInfo)
 	LabelinfoGetCatalognumber func(unsafe.Pointer, *byte, int) int
 	LabelinfoGetLabel         func(LabelInfo) Label
-	LabelinfoListSize        func(LabelInfoList) int
-	LabelinfoListItem        func(LabelInfoList, int) LabelInfo
-	LabelinfoListClone       func(LabelInfoList) LabelInfoList
-	LabelinfoListDelete      func(LabelInfoList)
-	LabelinfoListGetCount    func(LabelInfoList) int
+	LabelinfoListSize         func(LabelInfoList) int
+	LabelinfoListItem         func(LabelInfoList, int) LabelInfo
+	LabelinfoListClone        func(LabelInfoList) LabelInfoList
+	LabelinfoListDelete       func(LabelInfoList)
+	LabelinfoListGetCount     func(LabelInfoList) int
 	LabelinfoListGetOffset    func(LabelInfoList) int
 
 	// Lifespan
-	LifespanClone     func(Lifespan) Lifespan
-	LifespanDelete    func(Lifespan)
-	LifespanGetBegin  func(unsafe.Pointer, *byte, int) int
-	LifespanGetEnd    func(unsafe.Pointer, *byte, int) int
-	LifespanGetEnded  func(unsafe.Pointer, *byte, int) int
+	LifespanClone    func(Lifespan) Lifespan
+	LifespanDelete   func(Lifespan)
+	LifespanGetBegin func(unsafe.Pointer, *byte, int) int
+	LifespanGetEnd   func(unsafe.Pointer, *byte, int) int
+	LifespanGetEnded func(unsafe.Pointer, *byte, int) int
 
 	// Medium
-	MediumClone        func(Medium) Medium
-	MediumDelete       func(Medium)
-	MediumGetTitle     func(unsafe.Pointer, *byte, int) int
-	MediumGetPosition  func(Medium) int
-	MediumGetFormat    func(unsafe.Pointer, *byte, int) int
-	MediumGetDisclist  func(Medium) DiscList
-	MediumGetTracklist func(Medium) TrackList
-	MediumContainsDiscid func(Medium, string) bool
-	MediumListSize     func(MediumList) int
-	MediumListItem     func(MediumList, int) Medium
-	MediumListClone    func(MediumList) MediumList
-	MediumListDelete   func(MediumList)
-	MediumListGetCount func(MediumList) int
-	MediumListGetOffset func(MediumList) int
+	MediumClone             func(Medium) Medium
+	MediumDelete            func(Medium)
+	MediumGetTitle          func(unsafe.Pointer, *byte, int) int
+	MediumGetPosition       func(Medium) int
+	MediumGetFormat         func(unsafe.Pointer, *byte, int) int
+	MediumGetDisclist       func(Medium) DiscList
+	MediumGetTracklist      func(Medium) TrackList
+	MediumContainsDiscid    func(Medium, string) bool
+	MediumListSize          func(MediumList) int
+	MediumListItem          func(MediumList, int) Medium
+	MediumListClone         func(MediumList) MediumList
+	MediumListDelete        func(MediumList)
+	MediumListGetCount      func(MediumList) int
+	MediumListGetOffset     func(MediumList) int
 	MediumListGetTrackcount func(MediumList) int
 
 	// Message
-	MessageClone  func(Message) Message
-	MessageDelete func(Message)
+	MessageClone   func(Message) Message
+	MessageDelete  func(Message)
 	MessageGetText func(unsafe.Pointer, *byte, int) int
 
 	// Metadata
-	MetadataClone           func(Metadata) Metadata
-	MetadataDelete          func(Metadata)
-	MetadataGetArtist       func(Metadata) Artist
-	MetadataGetRelease      func(Metadata) Release
-	MetadataGetReleaseGroup func(Metadata) ReleaseGroup
-	MetadataGetRecording    func(Metadata) Recording
-	MetadataGetWork         func(Metadata) Work
-	MetadataGetLabel        func(Metadata) Label
-	MetadataGetDisc         func(Metadata) Disc
-	MetadataGetPUID         func(Metadata) PUID
-	MetadataGetISRC         func(Metadata) ISRC
-	MetadataGetLabelinfolist func(Metadata) LabelInfoList
-	MetadataGetRating       func(Metadata) Rating
-	MetadataGetUserrating   func(Metadata) UserRating
-	MetadataGetCollection    func(Metadata) Collection
-	MetadataGetArtistlist    func(Metadata) ArtistList
-	MetadataGetReleaselist   func(Metadata) ReleaseList
+	MetadataClone               func(Metadata) Metadata
+	MetadataDelete              func(Metadata)
+	MetadataGetArtist           func(Metadata) Artist
+	MetadataGetRelease          func(Metadata) Release
+	MetadataGetReleaseGroup     func(Metadata) ReleaseGroup
+	MetadataGetRecording        func(Metadata) Recording
+	MetadataGetWork             func(Metadata) Work
+	MetadataGetLabel            func(Metadata) Label
+	MetadataGetDisc             func(Metadata) Disc
+	MetadataGetPUID             func(Metadata) PUID
+	MetadataGetISRC             func(Metadata) ISRC
+	MetadataGetLabelinfolist    func(Metadata) LabelInfoList
+	MetadataGetRating           func(Metadata) Rating
+	MetadataGetUserrating       func(Metadata) UserRating
+	MetadataGetCollection       func(Metadata) Collection
+	MetadataGetArtistlist       func(Metadata) ArtistList
+	MetadataGetReleaselist      func(Metadata) ReleaseList
 	MetadataGetReleaseGroupList func(Metadata) ReleaseGroupList
-	MetadataGetRecordinglist func(Metadata) RecordingList
-	MetadataGetLabellist     func(Metadata) LabelList
-	MetadataGetWorklist      func(Metadata) WorkList
-	MetadataGetISRCList      func(Metadata) ISRCList
-	MetadataGetAnnotationlist func(Metadata) AnnotationList
-	MetadataGetCdstublist    func(Metadata) CDStubList
-	MetadataGetFreedbdisclist func(Metadata) FreeDBDiscList
-	MetadataGetTaglist       func(Metadata) TagList
-	MetadataGetUsertaglist   func(Metadata) UserTagList
-	MetadataGetCollectionlist func(Metadata) CollectionList
-	MetadataGetCdstub        func(Metadata) CDStub
-	MetadataGetMessage       func(Metadata) Message
+	MetadataGetRecordinglist    func(Metadata) RecordingList
+	MetadataGetLabellist        func(Metadata) LabelList
+	MetadataGetWorklist         func(Metadata) WorkList
+	MetadataGetISRCList         func(Metadata) ISRCList
+	MetadataGetAnnotationlist   func(Metadata) AnnotationList
+	MetadataGetCdstublist       func(Metadata) CDStubList
+	MetadataGetFreedbdisclist   func(Metadata) FreeDBDiscList
+	MetadataGetTaglist          func(Metadata) TagList
+	MetadataGetUsertaglist      func(Metadata) UserTagList
+	MetadataGetCollectionlist   func(Metadata) CollectionList
+	MetadataGetCdstub           func(Metadata) CDStub
+	MetadataGetMessage          func(Metadata) Message
 
 	// NonMBTrack
-	NonmbtrackClone        func(NonMBTrack) NonMBTrack
-	NonmbtrackDelete       func(NonMBTrack)
-	NonmbtrackGetTitle     func(unsafe.Pointer, *byte, int) int
-	NonmbtrackGetArtist    func(unsafe.Pointer, *byte, int) int
-	NonmbtrackGetLength    func(NonMBTrack) int
-	NonmbtrackListSize     func(NonMBTrackList) int
-	NonmbtrackListItem     func(NonMBTrackList, int) NonMBTrack
-	NonmbtrackListClone    func(NonMBTrackList) NonMBTrackList
-	NonmbtrackListDelete   func(NonMBTrackList)
-	NonmbtrackListGetCount func(NonMBTrackList) int
+	NonmbtrackClone         func(NonMBTrack) NonMBTrack
+	NonmbtrackDelete        func(NonMBTrack)
+	NonmbtrackGetTitle      func(unsafe.Pointer, *byte, int) int
+	NonmbtrackGetArtist     func(unsafe.Pointer, *byte, int) int
+	NonmbtrackGetLength     func(NonMBTrack) int
+	NonmbtrackListSize      func(NonMBTrackList) int
+	NonmbtrackListItem      func(NonMBTrackList, int) NonMBTrack
+	NonmbtrackListClone     func(NonMBTrackList) NonMBTrackList
+	NonmbtrackListDelete    func(NonMBTrackList)
+	NonmbtrackListGetCount  func(NonMBTrackList) int
 	NonmbtrackListGetOffset func(NonMBTrackList) int
 
 	// NameCredit
-	NamecreditClone        func(NameCredit) NameCredit
-	NamecreditDelete       func(NameCredit)
+	NamecreditClone         func(NameCredit) NameCredit
+	NamecreditDelete        func(NameCredit)
 	NamecreditGetJoinphrase func(unsafe.Pointer, *byte, int) int
 	NamecreditGetName       func(unsafe.Pointer, *byte, int) int
 	NamecreditGetArtist     func(NameCredit) Artist
-	NamecreditListSize     func(NameCreditList) int
-	NamecreditListItem     func(NameCreditList, int) NameCredit
-	NamecreditListClone    func(NameCreditList) NameCreditList
-	NamecreditListDelete   func(NameCreditList)
-	NamecreditListGetCount func(NameCreditList) int
+	NamecreditListSize      func(NameCreditList) int
+	NamecreditListItem      func(NameCreditList, int) NameCredit
+	NamecreditListClone     func(NameCreditList) NameCreditList
+	NamecreditListDelete    func(NameCreditList)
+	NamecreditListGetCount  func(NameCreditList) int
 	NamecreditListGetOffset func(NameCreditList) int
 
 	// Offset
-	OffsetClone        func(Offset) Offset
-	OffsetDelete       func(Offset)
-	OffsetGetPosition  func(Offset) int
-	OffsetGetOffset    func(Offset) int
-	OffsetListSize     func(OffsetList) int
-	OffsetListItem     func(OffsetList, int) Offset
-	OffsetListClone    func(OffsetList) OffsetList
-	OffsetListDelete   func(OffsetList)
-	OffsetListGetCount func(OffsetList) int
+	OffsetClone         func(Offset) Offset
+	OffsetDelete        func(Offset)
+	OffsetGetPosition   func(Offset) int
+	OffsetGetOffset     func(Offset) int
+	OffsetListSize      func(OffsetList) int
+	OffsetListItem      func(OffsetList, int) Offset
+	OffsetListClone     func(OffsetList) OffsetList
+	OffsetListDelete    func(OffsetList)
+	OffsetListGetCount  func(OffsetList) int
 	OffsetListGetOffset func(OffsetList) int
 
 	// PUID
-	PuidClone           func(PUID) PUID
-	PuidDelete          func(PUID)
-	PuidGetID           func(unsafe.Pointer, *byte, int) int
+	PuidClone            func(PUID) PUID
+	PuidDelete           func(PUID)
+	PuidGetID            func(unsafe.Pointer, *byte, int) int
 	PuidGetRecordinglist func(PUID) RecordingList
-	PuidListSize        func(PUIDList) int
-	PuidListItem        func(PUIDList, int) PUID
-	PuidListClone       func(PUIDList) PUIDList
-	PuidListDelete      func(PUIDList)
-	PuidListGetCount    func(PUIDList) int
+	PuidListSize         func(PUIDList) int
+	PuidListItem         func(PUIDList, int) PUID
+	PuidListClone        func(PUIDList) PUIDList
+	PuidListDelete       func(PUIDList)
+	PuidListGetCount     func(PUIDList) int
 	PuidListGetOffset    func(PUIDList) int
 
 	// Rating
-	RatingClone        func(Rating) Rating
-	RatingDelete       func(Rating)
+	RatingClone         func(Rating) Rating
+	RatingDelete        func(Rating)
 	RatingGetVotescount func(Rating) int
-	RatingGetRating    func(Rating) float64
+	RatingGetRating     func(Rating) float64
 
 	// Recording
 	RecordingClone               func(Recording) Recording
@@ -438,7 +438,7 @@ var (
 	RecordingGetArtistcredit     func(Recording) ArtistCredit
 	RecordingGetReleaselist      func(Recording) ReleaseList
 	RecordingGetPuidlist         func(Recording) PUIDList
-	RecordingGetISRCList      func(Recording) ISRCList
+	RecordingGetISRCList         func(Recording) ISRCList
 	RecordingGetRelationlistlist func(Recording) RelationListList
 	RecordingGetTaglist          func(Recording) TagList
 	RecordingGetUsertaglist      func(Recording) UserTagList
@@ -449,40 +449,40 @@ var (
 	RecordingListClone           func(RecordingList) RecordingList
 	RecordingListDelete          func(RecordingList)
 	RecordingListGetCount        func(RecordingList) int
-	RecordingListGetOffset        func(RecordingList) int
+	RecordingListGetOffset       func(RecordingList) int
 
 	// Relation
-	RelationClone           func(Relation) Relation
-	RelationDelete          func(Relation)
-	RelationGetTarget       func(unsafe.Pointer, *byte, int) int
-	RelationGetType         func(unsafe.Pointer, *byte, int) int
-	RelationGetDirection    func(unsafe.Pointer, *byte, int) int
+	RelationClone            func(Relation) Relation
+	RelationDelete           func(Relation)
+	RelationGetTarget        func(unsafe.Pointer, *byte, int) int
+	RelationGetType          func(unsafe.Pointer, *byte, int) int
+	RelationGetDirection     func(unsafe.Pointer, *byte, int) int
 	RelationGetAttributelist func(Relation) AttributeList
-	RelationGetBegin        func(unsafe.Pointer, *byte, int) int
-	RelationGetEnd          func(unsafe.Pointer, *byte, int) int
-	RelationGetEnded        func(unsafe.Pointer, *byte, int) int
-	RelationGetArtist       func(Relation) Artist
-	RelationGetRelease      func(Relation) Release
-	RelationGetReleasegroup func(Relation) ReleaseGroup
-	RelationGetRecording    func(Relation) Recording
-	RelationGetLabel        func(Relation) Label
-	RelationGetWork         func(Relation) Work
+	RelationGetBegin         func(unsafe.Pointer, *byte, int) int
+	RelationGetEnd           func(unsafe.Pointer, *byte, int) int
+	RelationGetEnded         func(unsafe.Pointer, *byte, int) int
+	RelationGetArtist        func(Relation) Artist
+	RelationGetRelease       func(Relation) Release
+	RelationGetReleasegroup  func(Relation) ReleaseGroup
+	RelationGetRecording     func(Relation) Recording
+	RelationGetLabel         func(Relation) Label
+	RelationGetWork          func(Relation) Work
 
 	// RelationList
-	RelationListSize        func(RelationList) int
-	RelationListItem        func(RelationList, int) Relation
-	RelationListClone       func(RelationList) RelationList
-	RelationListDelete      func(RelationList)
+	RelationListSize          func(RelationList) int
+	RelationListItem          func(RelationList, int) Relation
+	RelationListClone         func(RelationList) RelationList
+	RelationListDelete        func(RelationList)
 	RelationListGetTargettype func(unsafe.Pointer, *byte, int) int
-	RelationListGetCount    func(RelationList) int
-	RelationListGetOffset    func(RelationList) int
+	RelationListGetCount      func(RelationList) int
+	RelationListGetOffset     func(RelationList) int
 
 	// RelationListList
-	RelationlistListSize     func(RelationListList) int
-	RelationlistListItem     func(RelationListList, int) RelationList
-	RelationlistListClone    func(RelationListList) RelationListList
-	RelationlistListDelete   func(RelationListList)
-	RelationlistListGetCount func(RelationListList) int
+	RelationlistListSize      func(RelationListList) int
+	RelationlistListItem      func(RelationListList, int) RelationList
+	RelationlistListClone     func(RelationListList) RelationListList
+	RelationlistListDelete    func(RelationListList)
+	RelationlistListGetCount  func(RelationListList) int
 	RelationlistListGetOffset func(RelationListList) int
 
 	// Release
@@ -511,56 +511,56 @@ var (
 	ReleaseListClone             func(ReleaseList) ReleaseList
 	ReleaseListDelete            func(ReleaseList)
 	ReleaseListGetCount          func(ReleaseList) int
-	ReleaseListGetOffset          func(ReleaseList) int
+	ReleaseListGetOffset         func(ReleaseList) int
 
 	// ReleaseGroup
-	ReleasegroupClone               func(ReleaseGroup) ReleaseGroup
-	ReleasegroupDelete              func(ReleaseGroup)
-	ReleasegroupGetID               func(unsafe.Pointer, *byte, int) int
-	ReleasegroupGetPrimarytype      func(unsafe.Pointer, *byte, int) int
-	ReleasegroupGetFirstreleasedate func(unsafe.Pointer, *byte, int) int
-	ReleasegroupGetTitle            func(unsafe.Pointer, *byte, int) int
-	ReleasegroupGetDisambiguation   func(unsafe.Pointer, *byte, int) int
-	ReleasegroupGetArtistcredit     func(ReleaseGroup) ArtistCredit
-	ReleasegroupGetReleaselist      func(ReleaseGroup) ReleaseList
-	ReleasegroupGetRelationlistlist func(ReleaseGroup) RelationListList
-	ReleasegroupGetTaglist          func(ReleaseGroup) TagList
-	ReleasegroupGetUsertaglist      func(ReleaseGroup) UserTagList
-	ReleasegroupGetRating           func(ReleaseGroup) Rating
-	ReleasegroupGetUserrating       func(ReleaseGroup) UserRating
+	ReleasegroupClone                func(ReleaseGroup) ReleaseGroup
+	ReleasegroupDelete               func(ReleaseGroup)
+	ReleasegroupGetID                func(unsafe.Pointer, *byte, int) int
+	ReleasegroupGetPrimarytype       func(unsafe.Pointer, *byte, int) int
+	ReleasegroupGetFirstreleasedate  func(unsafe.Pointer, *byte, int) int
+	ReleasegroupGetTitle             func(unsafe.Pointer, *byte, int) int
+	ReleasegroupGetDisambiguation    func(unsafe.Pointer, *byte, int) int
+	ReleasegroupGetArtistcredit      func(ReleaseGroup) ArtistCredit
+	ReleasegroupGetReleaselist       func(ReleaseGroup) ReleaseList
+	ReleasegroupGetRelationlistlist  func(ReleaseGroup) RelationListList
+	ReleasegroupGetTaglist           func(ReleaseGroup) TagList
+	ReleasegroupGetUsertaglist       func(ReleaseGroup) UserTagList
+	ReleasegroupGetRating            func(ReleaseGroup) Rating
+	ReleasegroupGetUserrating        func(ReleaseGroup) UserRating
 	ReleasegroupGetSecondarytypelist func(ReleaseGroup) SecondaryTypeList
-	ReleasegroupListSize            func(ReleaseGroupList) int
-	ReleasegroupListItem            func(ReleaseGroupList, int) ReleaseGroup
-	ReleasegroupListClone           func(ReleaseGroupList) ReleaseGroupList
-	ReleasegroupListDelete          func(ReleaseGroupList)
-	ReleasegroupListGetCount        func(ReleaseGroupList) int
+	ReleasegroupListSize             func(ReleaseGroupList) int
+	ReleasegroupListItem             func(ReleaseGroupList, int) ReleaseGroup
+	ReleasegroupListClone            func(ReleaseGroupList) ReleaseGroupList
+	ReleasegroupListDelete           func(ReleaseGroupList)
+	ReleasegroupListGetCount         func(ReleaseGroupList) int
 	ReleasegroupListGetOffset        func(ReleaseGroupList) int
 
 	// SecondaryType
-	SecondarytypeListSize     func(SecondaryTypeList) int
-	SecondarytypeListItem     func(SecondaryTypeList, int) SecondaryType
-	SecondarytypeListClone    func(SecondaryTypeList) SecondaryTypeList
-	SecondarytypeListDelete   func(SecondaryTypeList)
-	SecondarytypeListGetCount func(SecondaryTypeList) int
+	SecondarytypeListSize      func(SecondaryTypeList) int
+	SecondarytypeListItem      func(SecondaryTypeList, int) SecondaryType
+	SecondarytypeListClone     func(SecondaryTypeList) SecondaryTypeList
+	SecondarytypeListDelete    func(SecondaryTypeList)
+	SecondarytypeListGetCount  func(SecondaryTypeList) int
 	SecondarytypeListGetOffset func(SecondaryTypeList) int
 
 	// Tag
-	TagClone        func(Tag) Tag
-	TagDelete       func(Tag)
-	TagGetCount     func(Tag) int
-	TagGetName      func(unsafe.Pointer, *byte, int) int
-	TagListSize     func(TagList) int
-	TagListItem     func(TagList, int) Tag
-	TagListClone    func(TagList) TagList
-	TagListDelete   func(TagList)
-	TagListGetCount func(TagList) int
+	TagClone         func(Tag) Tag
+	TagDelete        func(Tag)
+	TagGetCount      func(Tag) int
+	TagGetName       func(unsafe.Pointer, *byte, int) int
+	TagListSize      func(TagList) int
+	TagListItem      func(TagList, int) Tag
+	TagListClone     func(TagList) TagList
+	TagListDelete    func(TagList)
+	TagListGetCount  func(TagList) int
 	TagListGetOffset func(TagList) int
 
 	// TextRepresentation
-	TextrepresentationClone         func(TextRepresentation) TextRepresentation
-	TextrepresentationDelete        func(TextRepresentation)
-	TextrepresentationGetLanguage   func(unsafe.Pointer, *byte, int) int
-	TextrepresentationGetScript     func(unsafe.Pointer, *byte, int) int
+	TextrepresentationClone       func(TextRepresentation) TextRepresentation
+	TextrepresentationDelete      func(TextRepresentation)
+	TextrepresentationGetLanguage func(unsafe.Pointer, *byte, int) int
+	TextrepresentationGetScript   func(unsafe.Pointer, *byte, int) int
 
 	// Track
 	TrackClone           func(Track) Track
@@ -576,7 +576,7 @@ var (
 	TrackListClone       func(TrackList) TrackList
 	TrackListDelete      func(TrackList)
 	TrackListGetCount    func(TrackList) int
-	TrackListGetOffset    func(TrackList) int
+	TrackListGetOffset   func(TrackList) int
 
 	// UserRating
 	UserratingClone         func(UserRating) UserRating
@@ -584,14 +584,14 @@ var (
 	UserratingGetUserrating func(UserRating) int
 
 	// UserTag
-	UsertagClone        func(UserTag) UserTag
-	UsertagDelete       func(UserTag)
-	UsertagGetName      func(unsafe.Pointer, *byte, int) int
-	UsertagListSize     func(UserTagList) int
-	UsertagListItem     func(UserTagList, int) UserTag
-	UsertagListClone    func(UserTagList) UserTagList
-	UsertagListDelete   func(UserTagList)
-	UsertagListGetCount func(UserTagList) int
+	UsertagClone         func(UserTag) UserTag
+	UsertagDelete        func(UserTag)
+	UsertagGetName       func(unsafe.Pointer, *byte, int) int
+	UsertagListSize      func(UserTagList) int
+	UsertagListItem      func(UserTagList, int) UserTag
+	UsertagListClone     func(UserTagList) UserTagList
+	UsertagListDelete    func(UserTagList)
+	UsertagListGetCount  func(UserTagList) int
 	UsertagListGetOffset func(UserTagList) int
 
 	// Work
@@ -601,7 +601,7 @@ var (
 	WorkGetType             func(unsafe.Pointer, *byte, int) int
 	WorkGetTitle            func(unsafe.Pointer, *byte, int) int
 	WorkGetArtistcredit     func(Work) ArtistCredit
-	WorkGetISWCList      func(Work) ISWCList
+	WorkGetISWCList         func(Work) ISWCList
 	WorkGetDisambiguation   func(unsafe.Pointer, *byte, int) int
 	WorkGetAliaslist        func(Work) AliasList
 	WorkGetRelationlistlist func(Work) RelationListList
@@ -615,7 +615,7 @@ var (
 	WorkListClone           func(WorkList) WorkList
 	WorkListDelete          func(WorkList)
 	WorkListGetCount        func(WorkList) int
-	WorkListGetOffset        func(WorkList) int
+	WorkListGetOffset       func(WorkList) int
 )
 
 func Init() error {
