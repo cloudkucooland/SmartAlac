@@ -3,12 +3,17 @@ package picker
 import (
 	"context"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 
+	"github.com/Sorrow446/go-mp4tag"
 	"github.com/charmbracelet/bubbles/list"
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cloudkucooland/SmartAlac/pkg/sa"
+	"github.com/irlndts/go-discogs"
 )
 
 type state int
@@ -17,18 +22,28 @@ const (
 	stateInput state = iota
 	stateSearch
 	stateResults
+	stateDiscogsResults
 	stateTagging
 	stateDone
 )
 
+type mode int
+
+const (
+	modeMusicBrainz mode = iota
+	modeDiscogs
+)
+
 type model struct {
 	state       state
+	mode        mode
 	curator     *sa.Curator
 	targetDir   string
 	artistInput textinput.Model
 	albumInput  textinput.Model
 	focusIndex  int
 	results     []sa.MBRelease
+	dgResults   []discogs.Result
 	list        list.Model
 	error       error
 	status      string
@@ -59,6 +74,7 @@ func (m model) Init() tea.Cmd {
 }
 
 type searchResultMsg []sa.MBRelease
+type discogsResultMsg []discogs.Result
 type errorMsg error
 type tagDoneMsg struct{}
 
@@ -68,6 +84,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q":
 			return m, tea.Quit
+		case "ctrl+t":
+			if m.state == stateInput {
+				if m.mode == modeMusicBrainz {
+					m.mode = modeDiscogs
+				} else {
+					m.mode = modeMusicBrainz
+				}
+			}
 		}
 
 		switch m.state {
@@ -87,12 +111,19 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = stateSearch
 				m.error = nil
 				return m, func() tea.Msg {
-					// Use a background context for now since tea.Model doesn't easily expose one
-					res, err := m.curator.SearchMB(context.Background(), m.artistInput.Value(), m.albumInput.Value())
-					if err != nil {
-						return errorMsg(err)
+					if m.mode == modeMusicBrainz {
+						res, err := m.curator.SearchMB(context.Background(), m.artistInput.Value(), m.albumInput.Value())
+						if err != nil {
+							return errorMsg(err)
+						}
+						return searchResultMsg(res)
+					} else {
+						res, err := m.curator.SearchDiscogs(context.Background(), m.artistInput.Value(), m.albumInput.Value())
+						if err != nil {
+							return errorMsg(err)
+						}
+						return discogsResultMsg(res)
 					}
-					return searchResultMsg(res)
 				}
 			}
 			var cmd tea.Cmd
@@ -119,6 +150,41 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			m.list, cmd = m.list.Update(msg)
 			return m, cmd
+
+		case stateDiscogsResults:
+			if msg.String() == "enter" {
+				selected := m.list.SelectedItem().(dgItem).result
+				m.state = stateTagging
+				m.status = fmt.Sprintf("Tagging files in %s...", m.targetDir)
+				return m, func() tea.Msg {
+					// TagDirectory will now handle Discogs fallback internally if MBID is empty
+					// but since we selected a specific Discogs ID, we should pass it.
+					// We'll need a way to tell TagDirectory to use a specific Discogs ID.
+					// For now, let's update all files in dir with this Discogs ID.
+					files, err := os.ReadDir(m.targetDir)
+					if err != nil { return errorMsg(err) }
+					for _, f := range files {
+						if strings.HasSuffix(f.Name(), ".m4a") {
+							path := filepath.Join(m.targetDir, f.Name())
+							mp4, err := mp4tag.Open(path)
+							if err == nil {
+								tags, _ := mp4.Read()
+								newTags, changed, _ := m.curator.UpdateFromDiscogs(context.Background(), tags, selected.ID)
+								if changed {
+									customKeys := make([]string, 0, len(newTags.Custom))
+									for k := range newTags.Custom { customKeys = append(customKeys, k) }
+									_ = mp4.Write(newTags, customKeys)
+								}
+								mp4.Close()
+							}
+						}
+					}
+					return tagDoneMsg{}
+				}
+			}
+			var cmd tea.Cmd
+			m.list, cmd = m.list.Update(msg)
+			return m, cmd
 		}
 
 	case searchResultMsg:
@@ -135,6 +201,22 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.list = list.New(items, list.NewDefaultDelegate(), m.width, m.height-4)
 		m.list.Title = "Select MusicBrainz Release"
 		m.state = stateResults
+		return m, nil
+
+	case discogsResultMsg:
+		m.dgResults = msg
+		if len(m.dgResults) == 0 {
+			m.state = stateInput
+			m.error = fmt.Errorf("no releases found on Discogs")
+			return m, nil
+		}
+		items := make([]list.Item, len(m.dgResults))
+		for i, r := range m.dgResults {
+			items[i] = dgItem{r}
+		}
+		m.list = list.New(items, list.NewDefaultDelegate(), m.width, m.height-4)
+		m.list.Title = "Select Discogs Release"
+		m.state = stateDiscogsResults
 		return m, nil
 
 	case tagDoneMsg:
@@ -160,12 +242,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m model) View() string {
 	var s string
 
-	header := lipgloss.NewStyle().Foreground(lipgloss.Color("#FAFAFA")).Background(lipgloss.Color("#7D56F4")).Padding(0, 1).Bold(true).Render("PICKER: Album Tagger")
+	modeStr := "MusicBrainz"
+	if m.mode == modeDiscogs {
+		modeStr = "Discogs"
+	}
+
+	header := lipgloss.NewStyle().Foreground(lipgloss.Color("#FAFAFA")).Background(lipgloss.Color("#7D56F4")).Padding(0, 1).Bold(true).Render(fmt.Sprintf("PICKER: Album Tagger (%s)", modeStr))
 
 	switch m.state {
 	case stateInput:
 		s = fmt.Sprintf(
-			"Target Directory: %s\n\n%s\n%s\n\n(tab to switch, enter to search)\n",
+			"Target Directory: %s\n\n%s\n%s\n\n(tab to switch, ctrl+t to toggle MB/DG, enter to search)\n",
 			m.targetDir,
 			m.artistInput.View(),
 			m.albumInput.View(),
@@ -175,9 +262,9 @@ func (m model) View() string {
 		}
 
 	case stateSearch:
-		s = "\n  Searching MusicBrainz...\n"
+		s = fmt.Sprintf("\n  Searching %s...\n", modeStr)
 
-	case stateResults:
+	case stateResults, stateDiscogsResults:
 		s = m.list.View()
 
 	case stateTagging:
@@ -212,3 +299,13 @@ func (i item) Description() string {
 	return d
 }
 func (i item) FilterValue() string { return i.release.Title + " " + i.release.Artist }
+
+type dgItem struct {
+	result discogs.Result
+}
+
+func (i dgItem) Title() string       { return i.result.Title }
+func (i dgItem) Description() string {
+	return fmt.Sprintf("ID: %d | Year: %s | Type: %s", i.result.ID, i.result.Year, i.result.Type)
+}
+func (i dgItem) FilterValue() string { return i.result.Title }

@@ -344,6 +344,32 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 		}
 	}
 
+	// Extract Discogs ID from Release relations if present
+	rll := mb5.ReleaseGetRelationlistlist(release)
+	if rll != nil {
+		rllSize := mb5.RelationlistListSize(rll)
+		for i := 0; i < rllSize; i++ {
+			rl := mb5.RelationlistListItem(rll, i)
+			rlSize := mb5.RelationListSize(rl)
+			for j := 0; j < rlSize; j++ {
+				rel := mb5.RelationListItem(rl, j)
+				link := mb5.String(mb5.RelationGetTarget, unsafe.Pointer(rel))
+				if strings.Contains(link, "discogs.com/release/") {
+					parts := strings.Split(link, "/")
+					did := parts[len(parts)-1]
+					// Strip potential suffix like -Release-Name
+					if hyphenIdx := strings.Index(did, "-"); hyphenIdx != -1 {
+						did = did[:hyphenIdx]
+					}
+					out.Custom["Discogs Release Id"] = did
+					if c.Config.Debug {
+						log.Printf("Found linked Discogs ID in MB: %s", did)
+					}
+				}
+			}
+		}
+	}
+
 	if aids := c.joinArtistIDsMB5(ac); aids != "" {
 		out.Custom["MusicBrainz Album Artist Id"] = aids
 	}
