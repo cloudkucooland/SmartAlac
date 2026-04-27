@@ -113,7 +113,7 @@ func (c *Curator) UpdateFromDiscogs(ctx context.Context, in *mp4tag.MP4Tags, dis
 	return &out, changed, nil
 }
 
-func (c *Curator) SearchDiscogs(ctx context.Context, artist, album string) ([]discogs.Result, error) {
+func (c *Curator) SearchDiscogs(ctx context.Context, artist, album, barcode string) ([]discogs.Result, error) {
 	if c.dgClient == nil {
 		return nil, fmt.Errorf("discogs client not initialized")
 	}
@@ -130,6 +130,7 @@ func (c *Curator) SearchDiscogs(ctx context.Context, artist, album string) ([]di
 	request := discogs.SearchRequest{
 		Artist:       artist,
 		ReleaseTitle: album,
+		Barcode:      barcode,
 		Type:         "release",
 	}
 	

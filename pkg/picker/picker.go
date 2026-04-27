@@ -35,40 +35,83 @@ const (
 )
 
 type model struct {
-	state       state
-	mode        mode
-	curator     *sa.Curator
-	targetDir   string
-	artistInput textinput.Model
-	albumInput  textinput.Model
-	focusIndex  int
-	results     []sa.MBRelease
-	dgResults   []discogs.Result
-	list        list.Model
-	error       error
-	status      string
-	width       int
-	height      int
+        state       state
+        mode        mode
+        curator     *sa.Curator
+        targetDir   string
+        artistInput textinput.Model
+        albumInput  textinput.Model
+        mcnInput    textinput.Model
+        focusIndex  int
+        results     []sa.MBRelease
+        dgResults   []discogs.Result
+        list        list.Model
+        error       error
+        status      string
+        width       int
+        height      int
 }
 
 func NewModel(c *sa.Curator, dir string) model {
-	art := textinput.New()
-	art.Placeholder = "Album Artist"
-	art.Focus()
+        art := textinput.New()
+        art.Placeholder = "Album Artist"
+        art.Focus()
 
-	alb := textinput.New()
-	alb.Placeholder = "Album Title"
+        alb := textinput.New()
+        alb.Placeholder = "Album Title"
 
-	return model{
-		state:       stateInput,
-		curator:     c,
-		targetDir:   dir,
-		artistInput: art,
-		albumInput:  alb,
-		focusIndex:  0,
-	}
+        mcn := textinput.New()
+        mcn.Placeholder = "MCN / Barcode"
+
+        m := model{
+                state:       stateInput,
+                curator:     c,
+                targetDir:   dir,
+                artistInput: art,
+                albumInput:  alb,
+                mcnInput:    mcn,
+                focusIndex:  0,
+        }
+
+        files, _ := os.ReadDir(dir)
+        var firstM4A string
+        for _, f := range files {
+                if strings.HasSuffix(f.Name(), ".m4a") {
+                        firstM4A = filepath.Join(dir, f.Name())
+                        break
+                }
+        }
+
+        if firstM4A != "" {
+                mp4, err := mp4tag.Open(firstM4A)
+                if err == nil {
+                        tags, err := mp4.Read()
+                        if err == nil {
+                                mbid := tags.Custom["MusicBrainz Album Id"]
+                                barcode := tags.Custom["BARCODE"]
+                                if barcode == "" {
+                                        barcode = tags.Custom["MCN"]
+                                }
+                                artist := tags.AlbumArtist
+                                if artist == "" {
+                                        artist = tags.Artist
+                                }
+                                album := tags.Album
+
+                                m.artistInput.SetValue(artist)
+                                m.albumInput.SetValue(album)
+                                m.mcnInput.SetValue(barcode)
+
+                                if mbid == "" && barcode != "" {
+                                        m.mode = modeDiscogs
+                                }
+                        }
+                        mp4.Close()
+                }
+        }
+
+        return m
 }
-
 func (m model) Init() tea.Cmd {
 	return textinput.Blink
 }
@@ -96,44 +139,59 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch m.state {
 		case stateInput:
-			switch msg.String() {
-			case "tab", "shift+tab", "up", "down":
-				if m.focusIndex == 0 {
-					m.focusIndex = 1
-					m.artistInput.Blur()
-					m.albumInput.Focus()
-				} else {
-					m.focusIndex = 0
-					m.albumInput.Blur()
-					m.artistInput.Focus()
-				}
-			case "enter":
-				m.state = stateSearch
-				m.error = nil
-				return m, func() tea.Msg {
-					if m.mode == modeMusicBrainz {
-						res, err := m.curator.SearchMB(context.Background(), m.artistInput.Value(), m.albumInput.Value())
-						if err != nil {
-							return errorMsg(err)
-						}
-						return searchResultMsg(res)
-					} else {
-						res, err := m.curator.SearchDiscogs(context.Background(), m.artistInput.Value(), m.albumInput.Value())
-						if err != nil {
-							return errorMsg(err)
-						}
-						return discogsResultMsg(res)
-					}
-				}
-			}
-			var cmd tea.Cmd
-			if m.focusIndex == 0 {
-				m.artistInput, cmd = m.artistInput.Update(msg)
-			} else {
-				m.albumInput, cmd = m.albumInput.Update(msg)
-			}
-			return m, cmd
-
+		        switch msg.String() {
+		        case "tab", "shift+tab", "up", "down":
+		                m.artistInput.Blur()
+		                m.albumInput.Blur()
+		                m.mcnInput.Blur()
+		                if msg.String() == "shift+tab" || msg.String() == "up" {
+		                        m.focusIndex--
+		                        if m.focusIndex < 0 {
+		                                m.focusIndex = 2
+		                        }
+		                } else {
+		                        m.focusIndex++
+		                        if m.focusIndex > 2 {
+		                                m.focusIndex = 0
+		                        }
+		                }
+		                switch m.focusIndex {
+		                case 0:
+		                        m.artistInput.Focus()
+		                case 1:
+		                        m.albumInput.Focus()
+		                case 2:
+		                        m.mcnInput.Focus()
+		                }
+		        case "enter":
+		                m.state = stateSearch
+		                m.error = nil
+		                return m, func() tea.Msg {
+		                        if m.mode == modeMusicBrainz {
+		                                res, err := m.curator.SearchMB(context.Background(), m.artistInput.Value(), m.albumInput.Value())
+		                                if err != nil {
+		                                        return errorMsg(err)
+		                                }
+		                                return searchResultMsg(res)
+		                        } else {
+		                                res, err := m.curator.SearchDiscogs(context.Background(), m.artistInput.Value(), m.albumInput.Value(), m.mcnInput.Value())
+		                                if err != nil {
+		                                        return errorMsg(err)
+		                                }
+		                                return discogsResultMsg(res)
+		                        }
+		                }
+		        }
+		        var cmd tea.Cmd
+		        switch m.focusIndex {
+		        case 0:
+		                m.artistInput, cmd = m.artistInput.Update(msg)
+		        case 1:
+		                m.albumInput, cmd = m.albumInput.Update(msg)
+		        case 2:
+		                m.mcnInput, cmd = m.mcnInput.Update(msg)
+		        }
+		        return m, cmd
 		case stateResults:
 			if msg.String() == "enter" {
 				selected := m.list.SelectedItem().(item).release
@@ -251,12 +309,14 @@ func (m model) View() string {
 
 	switch m.state {
 	case stateInput:
-		s = fmt.Sprintf(
-			"Target Directory: %s\n\n%s\n%s\n\n(tab to switch, ctrl+t to toggle MB/DG, enter to search)\n",
-			m.targetDir,
-			m.artistInput.View(),
-			m.albumInput.View(),
-		)
+	        s = fmt.Sprintf(
+	                "Target Directory: %s\n\n%s\n%s\n%s\n\n(tab to switch, ctrl+t to toggle MB/DG, enter to search)\n",
+	                m.targetDir,
+	                m.artistInput.View(),
+	                m.albumInput.View(),
+	                m.mcnInput.View(),
+	        )
+
 		if m.error != nil {
 			s += lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).Render(fmt.Sprintf("\nError: %v\n", m.error))
 		}
