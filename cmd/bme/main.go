@@ -17,17 +17,23 @@ import (
 func main() {
 	app := &cli.Command{
 		Name:    "bme",
-		Version: "v0.0.0",
+		Version: "v0.5.0",
 		Authors: []any{
 			"Scot C. Bontrager <cloudkucooland@gmail.com>",
 		},
-		Copyright: "© 2022 Scot C. Bontrager",
+		Copyright: "© 2026 Scot C. Bontrager",
 
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "dir",
 				Aliases: []string{"d"},
+				Value:   "/home/data/bme",
 				Usage:   "base directory for work files",
+			},
+			&cli.StringSliceFlag{
+				Name:    "dev",
+				Aliases: []string{"D"},
+				Usage:   "CD devices to use",
 			},
 			&cli.StringFlag{
 				Name:    "config",
@@ -69,6 +75,10 @@ func main() {
 			}
 			if e := cmd.String("encoder"); e != "" {
 				cfg.EncoderPath = e
+			}
+
+			if devs := cmd.StringSlice("dev"); len(devs) > 0 {
+				cfg.Devices = devs
 			}
 
 			// Catch OS signals for graceful shutdown
