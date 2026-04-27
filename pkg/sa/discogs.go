@@ -30,6 +30,7 @@ func (c *Curator) UpdateFromDiscogs(ctx context.Context, in *mp4tag.MP4Tags, dis
 	}
 
 	out := *in
+	out.OtherCustom = make(map[string][]string) // Clear other custom to prevent duplication
 	if out.Custom == nil {
 		out.Custom = make(map[string]string)
 	} else {

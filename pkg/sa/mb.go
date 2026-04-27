@@ -182,7 +182,9 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 
 	// Start with a copy of input tags to preserve existing data
 	out := *in
+	out.OtherCustom = make(map[string][]string) // Clear other custom to prevent duplication
 	if out.Custom == nil {
+
 		out.Custom = make(map[string]string)
 	} else {
 		// Deep copy the map to avoid side effects
