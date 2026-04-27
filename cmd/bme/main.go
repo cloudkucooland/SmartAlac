@@ -59,9 +59,17 @@ func main() {
 				cfgPath = sa.DefaultConfigPath("bme.json")
 			}
 
+			if cmd.Bool("debug") {
+				log.Printf("Loading config from: %s", cfgPath)
+			}
+
 			cfg, err := bme.LoadConfig(cfgPath)
 			if err != nil {
 				return err
+			}
+
+			if cmd.Bool("debug") {
+				log.Printf("Config loaded. Devices: %v", cfg.Devices)
 			}
 
 			// CLI Overrides
