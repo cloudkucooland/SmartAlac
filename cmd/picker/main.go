@@ -44,18 +44,34 @@ func main() {
 				Name:  "acoustid-key",
 				Usage: "AcoustID API key",
 			},
+			&cli.StringFlag{
+				Name:  "discogs-token",
+				Usage: "Discogs API token",
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
+			shared := sa.LoadSharedConfig()
 			dir, err := filepath.Abs(cmd.String("dir"))
 			if err != nil {
 				return err
 			}
 
 			cfg := sa.Config{
-				DryRun:      cmd.Bool("dryrun"),
-				Debug:       cmd.Bool("debug"),
-				FinalDir:    cmd.String("finaldir"),
-				AcoustIDKey: cmd.String("acoustid-key"),
+				DryRun:       cmd.Bool("dryrun"),
+				Debug:        cmd.Bool("debug"),
+				FinalDir:     cmd.String("finaldir"),
+				AcoustIDKey:  cmd.String("acoustid-key"),
+				DiscogsToken: cmd.String("discogs-token"),
+			}
+
+			if cfg.FinalDir == "" {
+				cfg.FinalDir = shared.FinalDir
+			}
+			if cfg.AcoustIDKey == "" {
+				cfg.AcoustIDKey = shared.AcoustIDKey
+			}
+			if cfg.DiscogsToken == "" {
+				cfg.DiscogsToken = shared.DiscogsToken
 			}
 
 			curator := sa.NewCurator(cfg)

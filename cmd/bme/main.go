@@ -10,6 +10,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/cloudkucooland/SmartAlac/pkg/bme"
+	"github.com/cloudkucooland/SmartAlac/pkg/sa"
 	"github.com/urfave/cli/v3"
 )
 
@@ -49,8 +50,7 @@ func main() {
 
 			cfgPath := cmd.String("config")
 			if cfgPath == "" {
-				home, _ := os.UserHomeDir()
-				cfgPath = filepath.Join(home, ".bme.json")
+				cfgPath = sa.DefaultConfigPath("bme.json")
 			}
 
 			cfg, err := bme.LoadConfig(cfgPath)

@@ -2,6 +2,7 @@ package sa
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"github.com/cloudkucooland/SmartAlac/pkg/mb5"
 	"os"
@@ -24,9 +25,15 @@ type MBRelease struct {
 	Media          string
 }
 
-func (c *Curator) SearchMB(artist, album string) ([]MBRelease, error) {
+func (c *Curator) SearchMB(ctx context.Context, artist, album string) ([]MBRelease, error) {
 	if c.mb5query == nil {
 		return nil, fmt.Errorf("mb5 query not initialized")
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
 	}
 
 	// Lucene query format for MusicBrainz
@@ -103,9 +110,15 @@ func (c *Curator) SearchMB(artist, album string) ([]MBRelease, error) {
 	return results, nil
 }
 
-func (c *Curator) SelectRelease(results []MBRelease) (*MBRelease, error) {
+func (c *Curator) SelectRelease(ctx context.Context, results []MBRelease) (*MBRelease, error) {
 	if len(results) == 0 {
 		return nil, fmt.Errorf("no releases found")
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
 	}
 
 	fmt.Println("\nMusicBrainz Search Results:")

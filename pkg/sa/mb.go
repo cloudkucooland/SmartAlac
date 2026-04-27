@@ -1,6 +1,7 @@
 package sa
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -43,9 +44,15 @@ func isMBID(id string) bool {
 	return strings.Count(id, "-") == 4
 }
 
-func (c *Curator) UpdateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.MP4Tags, bool, error) {
+func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, overrideID string) (*mp4tag.MP4Tags, bool, error) {
 	if c.mb5query == nil {
 		return in, false, fmt.Errorf("mb5 query not initialized")
+	}
+
+	select {
+	case <-ctx.Done():
+		return in, false, ctx.Err()
+	default:
 	}
 
 	if c.Config.Debug {
@@ -106,29 +113,56 @@ func (c *Curator) UpdateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		return in, false, fmt.Errorf("%s failed once already, skipping", releaseid)
 	}
 	c.Stats.mu.Unlock()
-	c.rl.Take()
 
 	var metadata mb5.Metadata
 	var retryCount int
+
+	// TTL Cache check: If we've looked this up recently, don't hit the API again
+	if c.Cache != nil {
+		_, lastChecked, _, err := c.Cache.GetRelease(releaseid)
+		if err == nil && time.Since(lastChecked) < 30*24*time.Hour {
+			if c.Config.Debug {
+				log.Printf("skipping recently checked release %s (cached %v ago)", releaseid, time.Since(lastChecked))
+			}
+			return in, false, nil
+		}
+	}
+
+	c.rl.Take()
 	for {
+		select {
+		case <-ctx.Done():
+			return in, false, ctx.Err()
+		default:
+		}
+
 		// Prepare query parameters for explicit "inc" request
 		p1 := []byte("inc\x00")
 		v1 := []byte("artists labels recordings release-groups url-rels artist-credits work-rels artist-rels work-level-rels\x00")
-		
+
 		params := [1]*byte{&p1[0]}
 		values := [1]*byte{&v1[0]}
 
 		// Query libmusicbrainz5
 		metadata = mb5.QueryQuery(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params[0]), unsafe.Pointer(&values[0]))
 		if metadata != nil {
+			// Mark as checked in Cache
+			if c.Cache != nil {
+				c.Cache.SaveRelease(releaseid, nil, "")
+			}
 			break
 		}
-
 		lastCode := mb5.QueryGetLasthttpcode(c.mb5query)
 		if lastCode == 503 && retryCount < 3 {
 			retryCount++
 			log.Printf("MusicBrainz returned 503, retrying in 5 seconds (attempt %d/3)...", retryCount)
-			time.Sleep(5 * time.Second)
+
+			// Context-aware sleep
+			select {
+			case <-time.After(5 * time.Second):
+			case <-ctx.Done():
+				return in, false, ctx.Err()
+			}
 			continue
 		}
 
@@ -142,9 +176,10 @@ func (c *Curator) UpdateFromMB(in *mp4tag.MP4Tags, overrideID string) (*mp4tag.M
 		log.Printf("query to MusicBrainz failed for %s (HTTP %d): %s", releaseid, lastCode, cErr)
 		return in, false, nil
 	}
-	defer mb5.MetadataDelete(metadata)
 
+	defer mb5.MetadataDelete(metadata)
 	release := mb5.MetadataGetRelease(metadata)
+
 	if release == nil {
 		return in, false, fmt.Errorf("no release in metadata for %s", releaseid)
 	}
@@ -576,9 +611,15 @@ func (c *Curator) fmtCatalogNumbersMB5(liList mb5.LabelInfoList) string {
 	return strings.Join(cats, "; ")
 }
 
-func (c *Curator) UpdateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.MP4Tags, bool, error) {
+func (c *Curator) UpdateFromDiscID(ctx context.Context, in *mp4tag.MP4Tags, discid string) (*mp4tag.MP4Tags, bool, error) {
 	if c.mb5query == nil {
 		return in, false, fmt.Errorf("mb5 query not initialized")
+	}
+
+	select {
+	case <-ctx.Done():
+		return in, false, ctx.Err()
+	default:
 	}
 
 	c.rl.Take()
@@ -586,6 +627,12 @@ func (c *Curator) UpdateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 	var metadata mb5.Metadata
 	var retryCount int
 	for {
+		select {
+		case <-ctx.Done():
+			return in, false, ctx.Err()
+		default:
+		}
+
 		metadata = mb5.QueryQuery(c.mb5query, "discid", discid, "", 0, nil, nil)
 		if metadata != nil {
 			break
@@ -595,7 +642,12 @@ func (c *Curator) UpdateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 		if lastCode == 503 && retryCount < 3 {
 			retryCount++
 			log.Printf("MusicBrainz returned 503 (discid), retrying in 5 seconds (attempt %d/3)...", retryCount)
-			time.Sleep(5 * time.Second)
+			
+			select {
+			case <-time.After(5 * time.Second):
+			case <-ctx.Done():
+				return in, false, ctx.Err()
+			}
 			continue
 		}
 
@@ -628,7 +680,7 @@ func (c *Curator) UpdateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 	}
 
 	// Now call the standard update with this release ID
-	out, changed, err := c.UpdateFromMB(in, releaseID)
+	out, changed, err := c.UpdateFromMB(ctx, in, releaseID)
 	if err == nil && out != nil {
 		if out.Custom == nil {
 			out.Custom = make(map[string]string)
@@ -638,7 +690,7 @@ func (c *Curator) UpdateFromDiscID(in *mp4tag.MP4Tags, discid string) (*mp4tag.M
 	return out, changed, err
 }
 
-func (c *Curator) AcoustIDLookup(fingerprint string, duration int) (string, error) {
+func (c *Curator) AcoustIDLookup(ctx context.Context, fingerprint string, duration int) (string, error) {
 	if c.Config.AcoustIDKey == "" {
 		return "", fmt.Errorf("AcoustID key not set")
 	}
@@ -646,7 +698,12 @@ func (c *Curator) AcoustIDLookup(fingerprint string, duration int) (string, erro
 	url := fmt.Sprintf("https://api.acoustid.org/v2/lookup?client=%s&meta=releasegroups+releases&duration=%d&fingerprint=%s",
 		c.Config.AcoustIDKey, duration, fingerprint)
 
-	resp, err := http.Get(url)
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return "", err
+	}
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return "", err
 	}
@@ -685,13 +742,19 @@ func (c *Curator) AcoustIDLookup(fingerprint string, duration int) (string, erro
 }
 
 // TagDirectory tags all .m4a files in a directory with the given MusicBrainz release ID.
-func (c *Curator) TagDirectory(dir, releaseID string, p interface{}) error {
+func (c *Curator) TagDirectory(ctx context.Context, dir, releaseID string, p interface{}) error {
 	files, err := os.ReadDir(dir)
 	if err != nil {
 		return err
 	}
 
 	for _, f := range files {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		if !strings.HasSuffix(f.Name(), ".m4a") {
 			continue
 		}
@@ -721,7 +784,7 @@ func (c *Curator) TagDirectory(dir, releaseID string, p interface{}) error {
 			}
 		}
 
-		newTags, changed, err := c.UpdateFromMB(tags, releaseID)
+		newTags, changed, err := c.UpdateFromMB(ctx, tags, releaseID)
 		if err != nil {
 			mp4.Close()
 			log.Printf("error updating tags for %s: %v", path, err)

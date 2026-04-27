@@ -1,6 +1,7 @@
 package picker
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/charmbracelet/bubbles/list"
@@ -86,7 +87,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = stateSearch
 				m.error = nil
 				return m, func() tea.Msg {
-					res, err := m.curator.SearchMB(m.artistInput.Value(), m.albumInput.Value())
+					// Use a background context for now since tea.Model doesn't easily expose one
+					res, err := m.curator.SearchMB(context.Background(), m.artistInput.Value(), m.albumInput.Value())
 					if err != nil {
 						return errorMsg(err)
 					}
@@ -107,7 +109,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = stateTagging
 				m.status = fmt.Sprintf("Tagging files in %s...", m.targetDir)
 				return m, func() tea.Msg {
-					err := m.curator.TagDirectory(m.targetDir, selected.ID, nil)
+					err := m.curator.TagDirectory(context.Background(), m.targetDir, selected.ID, nil)
 					if err != nil {
 						return errorMsg(err)
 					}

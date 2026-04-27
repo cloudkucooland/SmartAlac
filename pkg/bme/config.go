@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+
+	"github.com/cloudkucooland/SmartAlac/pkg/sa"
 )
 
 type Config struct {
@@ -17,8 +19,7 @@ type Config struct {
 }
 
 func DefaultConfig() *Config {
-	home, _ := os.UserHomeDir()
-	base := filepath.Join(home, "bme")
+	base := sa.DefaultDataDir()
 	return &Config{
 		BaseDir:     base,
 		RipDir:      filepath.Join(base, "rip"),
