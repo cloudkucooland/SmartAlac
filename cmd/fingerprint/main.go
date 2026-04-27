@@ -43,6 +43,11 @@ func main() {
 				Name:  "acoustid-key",
 				Usage: "AcoustID API key (optional, if you want to resolve to AcoustIDs)",
 			},
+			&cli.StringFlag{
+				Name:  "fpcalc",
+				Usage: "path to fpcalc binary",
+				Value: "fpcalc",
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			shared := sa.LoadSharedConfig()
@@ -54,9 +59,13 @@ func main() {
 
 			cfg := sa.Config{
 				AcoustIDKey: cmd.String("acoustid-key"),
+				FpcalcPath:  cmd.String("fpcalc"),
 			}
 			if cfg.AcoustIDKey == "" {
 				cfg.AcoustIDKey = shared.AcoustIDKey
+			}
+			if cfg.FpcalcPath == "fpcalc" && shared.FpcalcPath != "" {
+				cfg.FpcalcPath = shared.FpcalcPath
 			}
 
 			curator := sa.NewCurator(cfg)
@@ -65,7 +74,7 @@ func main() {
 			dir := cmd.String("dir")
 			force := cmd.Bool("force")
 
-			chromaprinter, err := chromaprint.NewBuilder().Build()
+			chromaprinter, err := chromaprint.NewBuilder().WithPathToChromaprint(cfg.FpcalcPath).Build()
 			if err != nil {
 				return fmt.Errorf("failed to init chromaprint: %w", err)
 			}

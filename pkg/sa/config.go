@@ -37,6 +37,7 @@ type SharedConfig struct {
 	FinalDir     string `json:"final_dir"`
 	AcoustIDKey  string `json:"acoustid_key"`
 	DiscogsToken string `json:"discogs_token"`
+	FpcalcPath   string `json:"fpcalc_path"`
 }
 
 func LoadSharedConfig() *SharedConfig {

@@ -72,6 +72,11 @@ func main() {
 				Name:  "discogs-token",
 				Usage: "Discogs API token",
 			},
+			&cli.StringFlag{
+				Name:  "fpcalc",
+				Usage: "path to fpcalc binary",
+				Value: "fpcalc",
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			shared := sa.LoadSharedConfig()
@@ -85,6 +90,7 @@ func main() {
 				FinalDir:     cmd.String("finaldir"),
 				AcoustIDKey:  cmd.String("acoustid-key"),
 				DiscogsToken: cmd.String("discogs-token"),
+				FpcalcPath:   cmd.String("fpcalc"),
 			}
 
 			if cfg.FinalDir == "" {
@@ -95,6 +101,9 @@ func main() {
 			}
 			if cfg.DiscogsToken == "" {
 				cfg.DiscogsToken = shared.DiscogsToken
+			}
+			if cfg.FpcalcPath == "fpcalc" && shared.FpcalcPath != "" {
+				cfg.FpcalcPath = shared.FpcalcPath
 			}
 
 			curator := sa.NewCurator(cfg)

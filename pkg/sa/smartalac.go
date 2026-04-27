@@ -19,6 +19,7 @@ type Config struct {
 	FinalDir     string
 	AcoustIDKey  string
 	DiscogsToken string
+	FpcalcPath   string
 }
 
 type Stats struct {

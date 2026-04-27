@@ -111,7 +111,7 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 		}
 
 		if fpStr == "" {
-			chromaprinter, err := chromaprint.NewBuilder().Build()
+			chromaprinter, err := chromaprint.NewBuilder().WithPathToChromaprint(c.Config.FpcalcPath).Build()
 			if err == nil {
 				fingerprints, err := chromaprinter.CreateFingerprints(p)
 				if err == nil && len(fingerprints) > 0 {
