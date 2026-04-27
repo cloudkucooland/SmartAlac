@@ -34,6 +34,11 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 		return err
 	}
 
+	// Check if file still exists (it might have been moved by a previous step in the walk)
+	if _, err := os.Stat(p); os.IsNotExist(err) {
+		return nil
+	}
+
 	// Check context for graceful shutdown before starting work on a new file
 	if c.ctx != nil {
 		select {
@@ -287,7 +292,10 @@ func (c *Curator) rename(fullpath string, tags *mp4tag.MP4Tags) error {
 	}
 
 	if err := os.Rename(fullpath, finalpath); err != nil {
-		return c.move(fullpath, finalpath)
+		if err := c.move(fullpath, finalpath); err != nil {
+			log.Printf("error moving file: %v", err)
+			return nil // Log and continue walk
+		}
 	}
 
 	return nil
