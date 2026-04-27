@@ -23,6 +23,10 @@ func OpenCache(path string) (*Cache, error) {
 		return nil, fmt.Errorf("failed to open cache: %w", err)
 	}
 
+	// Enable WAL mode and set a busy timeout to handle concurrent access
+	_, _ = db.Exec("PRAGMA journal_mode=WAL;")
+	_, _ = db.Exec("PRAGMA busy_timeout=5000;")
+
 	// Create tables if they don't exist
 	schema := `
 	CREATE TABLE IF NOT EXISTS release_cache (
