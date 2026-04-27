@@ -141,16 +141,13 @@ func Start(ctx context.Context, cfg *Config, p *tea.Program) error {
 	// start batch ripper(s)
 	devices := cfg.Devices
 	if len(devices) == 0 {
-		defaultDev := cdio.GetDefaultDevice(nil)
-		slog.Info("no devices configured, using default", "device", defaultDev)
-		devices = []string{defaultDev}
+		devices = []string{cdio.GetDefaultDevice(nil)}
 	}
 
 	for _, dev := range devices {
 		if dev == "" {
 			continue
 		}
-		slog.Info("starting ripper worker", "device", dev)
 		wg.Add(1)
 		go func(d string) {
 			defer wg.Done()
