@@ -89,8 +89,18 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 					}
 				}
 				out.Custom = newCustom
+
+				// Apply fallback here too so the file can still be moved safely
+				if out.AlbumArtist == "" && out.Artist != "" {
+					out.AlbumArtist = out.Artist
+				}
+				if out.AlbumArtistSort == "" && out.AlbumArtist != "" {
+					out.AlbumArtistSort = out.AlbumArtist
+				}
+
 				return &out, true, nil
-			}
+				}
+
 		}
 		return in, false, nil
 	}
@@ -119,10 +129,10 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 
 	// TTL Cache check: If we've looked this up recently, don't hit the API again
 	if c.Cache != nil {
-		_, lastChecked, _, err := c.Cache.GetRelease(releaseid)
-		if err == nil && time.Since(lastChecked) < 30*24*time.Hour {
+		rm, err := c.Cache.GetRelease(releaseid)
+		if err == nil && time.Since(rm.LastChecked) < 30*24*time.Hour {
 			if c.Config.Debug {
-				log.Printf("skipping recently checked release %s (cached %v ago)", releaseid, time.Since(lastChecked))
+				log.Printf("skipping recently checked release %s (cached %v ago)", releaseid, time.Since(rm.LastChecked))
 			}
 			return in, false, nil
 		}
@@ -148,7 +158,21 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 		if metadata != nil {
 			// Mark as checked in Cache
 			if c.Cache != nil {
-				c.Cache.SaveRelease(releaseid, nil, "")
+				rm := &ReleaseMetadata{
+					MBID: releaseid,
+				}
+				
+				ml := mb5.MetadataGetRelease(metadata)
+				if ml != nil {
+					medList := mb5.ReleaseGetMediumlist(ml)
+					rm.DiscCount = mb5.MediumListSize(medList)
+					for i := 0; i < rm.DiscCount; i++ {
+						m := mb5.MediumListItem(medList, i)
+						tl := mb5.MediumGetTracklist(m)
+						rm.TrackCount += mb5.TrackListSize(tl)
+					}
+				}
+				c.Cache.SaveRelease(rm)
 			}
 			break
 		}

@@ -29,7 +29,9 @@ func OpenCache(path string) (*Cache, error) {
 		mbid TEXT PRIMARY KEY,
 		last_checked TIMESTAMP,
 		etag TEXT,
-		data BLOB
+		data BLOB,
+		track_count INTEGER,
+		disc_count INTEGER
 	);
 	CREATE TABLE IF NOT EXISTS file_cache (
 		path TEXT PRIMARY KEY,
@@ -67,14 +69,27 @@ func (c *Cache) SaveFingerprint(path string, mtime time.Time, size int64, fp str
 	return err
 }
 
-func (c *Cache) GetRelease(mbid string) (data []byte, lastChecked time.Time, etag string, err error) {
-	row := c.db.QueryRow("SELECT data, last_checked, etag FROM release_cache WHERE mbid = ?", mbid)
-	err = row.Scan(&data, &lastChecked, &etag)
-	return
+type ReleaseMetadata struct {
+	MBID        string
+	LastChecked time.Time
+	ETag        string
+	Data        []byte
+	TrackCount  int
+	DiscCount   int
 }
 
-func (c *Cache) SaveRelease(mbid string, data []byte, etag string) error {
-	_, err := c.db.Exec("INSERT OR REPLACE INTO release_cache (mbid, last_checked, etag, data) VALUES (?, ?, ?, ?)",
-		mbid, time.Now(), etag, data)
+func (c *Cache) GetRelease(mbid string) (*ReleaseMetadata, error) {
+	rm := &ReleaseMetadata{MBID: mbid}
+	row := c.db.QueryRow("SELECT data, last_checked, etag, track_count, disc_count FROM release_cache WHERE mbid = ?", mbid)
+	err := row.Scan(&rm.Data, &rm.LastChecked, &rm.ETag, &rm.TrackCount, &rm.DiscCount)
+	if err != nil {
+		return nil, err
+	}
+	return rm, nil
+}
+
+func (c *Cache) SaveRelease(rm *ReleaseMetadata) error {
+	_, err := c.db.Exec("INSERT OR REPLACE INTO release_cache (mbid, last_checked, etag, data, track_count, disc_count) VALUES (?, ?, ?, ?, ?, ?)",
+		rm.MBID, time.Now(), rm.ETag, rm.Data, rm.TrackCount, rm.DiscCount)
 	return err
 }
