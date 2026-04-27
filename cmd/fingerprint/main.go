@@ -121,6 +121,25 @@ func main() {
 							continue
 						}
 
+						// If not in cache, check if it is already tagged
+						mp4, err := mp4tag.Open(p)
+						if err == nil {
+							tags, err := mp4.Read()
+							if err == nil {
+								if existingFP := tags.Custom["Acoustid Fingerprint"]; existingFP != "" && !force {
+									log.Printf("Found existing fingerprint in tags: %s", p)
+									
+									// We still need duration for the cache, so we must hash once to get it
+									// unless we want to use another tool to get duration.
+									// For now, let's just hash to be sure and populate the cache.
+									mp4.Close()
+									goto hash_file
+								}
+							}
+							mp4.Close()
+						}
+
+					hash_file:
 						log.Printf("Hashing: %s", p)
 						fingerprints, err := chromaprinter.CreateFingerprints(p)
 						if err != nil {
