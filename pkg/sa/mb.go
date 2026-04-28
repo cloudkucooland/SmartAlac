@@ -137,55 +137,73 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 	c.Stats.mu.Unlock()
 
 	var metadata mb5.Metadata
-	var retryCount int
 
-	c.rl.Take()
-	for {
-		select {
-		case <-ctx.Done():
-			return in, false, ctx.Err()
-		default:
-		}
+	c.mbCacheMu.Lock()
+	if cached, ok := c.mbCache[releaseid]; ok {
+		metadata = cached
+		c.mbCacheMu.Unlock()
+	} else {
+		c.mbCacheMu.Unlock()
 
-		// Prepare query parameters for explicit "inc" request
-		p1 := []byte("inc\x00")
-		v1 := []byte("artists labels recordings release-groups url-rels artist-credits work-rels artist-rels work-level-rels\x00")
-
-		params := [1]*byte{&p1[0]}
-		values := [1]*byte{&v1[0]}
-
-		// Query libmusicbrainz5
-		metadata = mb5.QueryQuery(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params[0]), unsafe.Pointer(&values[0]))
-		if metadata != nil {
-			break
-		}
-
-		lastCode := mb5.QueryGetLasthttpcode(c.mb5query)
-		if lastCode == 503 && retryCount < 3 {
-			retryCount++
-			log.Printf("MusicBrainz returned 503, retrying in 5 seconds (attempt %d/3)...", retryCount)
-
-			// Context-aware sleep
+		var retryCount int
+		c.rl.Take()
+		for {
 			select {
-			case <-time.After(5 * time.Second):
 			case <-ctx.Done():
 				return in, false, ctx.Err()
+			default:
 			}
-			continue
+
+			// Prepare query parameters for explicit "inc" request
+			p1 := []byte("inc\x00")
+			v1 := []byte("artists labels recordings release-groups url-rels artist-credits work-rels artist-rels work-level-rels\x00")
+
+			params := [1]*byte{&p1[0]}
+			values := [1]*byte{&v1[0]}
+
+			// Query libmusicbrainz5
+			metadata = mb5.QueryQuery(c.mb5query, "release", releaseid, "", 1, unsafe.Pointer(&params[0]), unsafe.Pointer(&values[0]))
+			if metadata != nil {
+				break
+			}
+
+			lastCode := mb5.QueryGetLasthttpcode(c.mb5query)
+			if lastCode == 503 && retryCount < 3 {
+				retryCount++
+				log.Printf("MusicBrainz returned 503, retrying in 5 seconds (attempt %d/3)...", retryCount)
+
+				// Context-aware sleep
+				select {
+				case <-time.After(5 * time.Second):
+				case <-ctx.Done():
+					return in, false, ctx.Err()
+				}
+				continue
+			}
+
+			c.Stats.mu.Lock()
+			c.Stats.BadQueries[releaseid] = true
+			c.Stats.mu.Unlock()
+
+			var errbuf [256]byte
+			mb5.QueryGetLasterrormessage(c.mb5query, &errbuf[0], 256)
+			cErr := strings.Trim(string(errbuf[:]), "\x00")
+			log.Printf("query to MusicBrainz failed for %s (HTTP %d): %s", releaseid, lastCode, cErr)
+			return in, false, nil
 		}
 
-		c.Stats.mu.Lock()
-		c.Stats.BadQueries[releaseid] = true
-		c.Stats.mu.Unlock()
-
-		var errbuf [256]byte
-		mb5.QueryGetLasterrormessage(c.mb5query, &errbuf[0], 256)
-		cErr := strings.Trim(string(errbuf[:]), "\x00")
-		log.Printf("query to MusicBrainz failed for %s (HTTP %d): %s", releaseid, lastCode, cErr)
-		return in, false, nil
+		c.mbCacheMu.Lock()
+		if len(c.mbCache) >= 50 {
+			for _, v := range c.mbCache {
+				mb5.MetadataDelete(v)
+			}
+			c.mbCache = make(map[string]mb5.Metadata)
+		}
+		c.mbCache[releaseid] = metadata
+		c.mbCacheMu.Unlock()
 	}
 
-	defer mb5.MetadataDelete(metadata)
+	// defer mb5.MetadataDelete(metadata)
 	release := mb5.MetadataGetRelease(metadata)
 
 	if release == nil {

@@ -30,10 +30,12 @@ type Stats struct {
 }
 
 type Curator struct {
-	Config Config
-	Stats  Stats
-	rl     ratelimit.Limiter
-	dgRL   ratelimit.Limiter
+	Config    Config
+	Stats     Stats
+	rl        ratelimit.Limiter
+	dgRL      ratelimit.Limiter
+	mbCache   map[string]mb5.Metadata
+	mbCacheMu sync.Mutex
 
 	mb5query mb5.Query
 	dgClient interface{} // github.com/irlndts/go-discogs
@@ -50,8 +52,9 @@ func NewCurator(cfg Config) *Curator {
 		Stats: Stats{
 			BadQueries: make(map[string]bool),
 		},
-		rl:   ratelimit.New(1),
-		dgRL: ratelimit.New(1),
+		rl:      ratelimit.New(1),
+		dgRL:    ratelimit.New(1),
+		mbCache: make(map[string]mb5.Metadata),
 	}
 
 	if cfg.DiscogsToken != "" {
