@@ -152,8 +152,11 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 		album := tags.Album
 		if artist != "" && album != "" {
 			barcode := tags.Custom["BARCODE"]
-			if barcode == "" {
+			if barcode == "" || IsAllZeros(barcode) {
 				barcode = tags.Custom["MCN"]
+			}
+			if IsAllZeros(barcode) {
+				barcode = ""
 			}
 			results, err := c.SearchDiscogs(c.ctx, artist, album, barcode)
 			if err == nil && len(results) > 0 {

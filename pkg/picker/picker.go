@@ -89,8 +89,11 @@ func NewModel(c *sa.Curator, dir string) model {
 			if err == nil {
 				mbid := tags.Custom["MusicBrainz Album Id"]
 				barcode := tags.Custom["BARCODE"]
-				if barcode == "" {
+				if barcode == "" || sa.IsAllZeros(barcode) {
 					barcode = tags.Custom["MCN"]
+				}
+				if sa.IsAllZeros(barcode) {
+					barcode = ""
 				}
 				artist := tags.AlbumArtist
 				if artist == "" {

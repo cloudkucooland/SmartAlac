@@ -376,6 +376,9 @@ func get_cdtext(d *ripdisc_t, cddevice cdio.Device) {
 	}
 
 	d.MCN = cdio.MmcGetMcn(cddevice)
+	if strings.Trim(d.MCN, "0") == "" {
+		d.MCN = ""
+	}
 	get_toc(d, cddevice)
 }
 

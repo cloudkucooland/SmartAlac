@@ -44,6 +44,18 @@ func isMBID(id string) bool {
 	return strings.Count(id, "-") == 4
 }
 
+func IsAllZeros(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if r != '0' {
+			return false
+		}
+	}
+	return true
+}
+
 func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, overrideID string) (*mp4tag.MP4Tags, bool, error) {
 	if c.mb5query == nil {
 		return in, false, fmt.Errorf("mb5 query not initialized")
