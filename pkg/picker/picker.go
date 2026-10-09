@@ -87,10 +87,18 @@ func NewModel(c *sa.Curator, dir string) model {
 		if err == nil {
 			tags, err := mp4.Read()
 			if err == nil {
-				mbid := tags.Custom["MusicBrainz Album Id"]
-				barcode := tags.Custom["BARCODE"]
+				var mbid string
+				if vals, ok := tags.Custom["MusicBrainz Album Id"]; ok && len(vals) > 0 {
+					mbid = vals[0]
+				}
+				var barcode string
+				if vals, ok := tags.Custom["BARCODE"]; ok && len(vals) > 0 {
+					barcode = vals[0]
+				}
 				if barcode == "" || sa.IsAllZeros(barcode) {
-					barcode = tags.Custom["MCN"]
+					if vals, ok := tags.Custom["MCN"]; ok && len(vals) > 0 {
+						barcode = vals[0]
+					}
 				}
 				if sa.IsAllZeros(barcode) {
 					barcode = ""

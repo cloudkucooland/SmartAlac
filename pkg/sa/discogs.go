@@ -31,18 +31,20 @@ func (c *Curator) UpdateFromDiscogs(ctx context.Context, in *mp4tag.MP4Tags, dis
 
 	out := *in
 	if out.Custom == nil {
-		out.Custom = make(map[string]string)
+		out.Custom = make(map[string][]string)
 	} else {
-		newCustom := make(map[string]string)
+		newCustom := make(map[string][]string)
 		for k, v := range out.Custom {
-			newCustom[k] = v
+			vCopy := make([]string, len(v))
+			copy(vCopy, v)
+			newCustom[k] = vCopy
 		}
 		out.Custom = newCustom
 	}
 
 	out.Album = release.Title
 	out.AlbumSort = release.Title + " [discogs:" + strconv.Itoa(discogsID) + "]"
-	out.Custom["Discogs Release Id"] = strconv.Itoa(discogsID)
+	out.Custom["Discogs Release Id"] = []string{strconv.Itoa(discogsID)}
 
 	if len(release.Artists) > 0 {
 		var artists []string
@@ -94,23 +96,20 @@ func (c *Curator) UpdateFromDiscogs(ctx context.Context, in *mp4tag.MP4Tags, dis
 				cats = append(cats, l.Catno)
 			}
 		}
-		out.Custom["LABEL"] = strings.Join(labels, "; ")
-		out.Custom["CATALOGNUMBER"] = strings.Join(cats, "; ")
+		out.Custom["LABEL"] = []string{strings.Join(labels, "; ")}
+		out.Custom["CATALOGNUMBER"] = []string{strings.Join(cats, "; ")}
 	}
 
 	if len(release.Genres) > 0 {
-		out.Custom["Genre"] = strings.Join(release.Genres, "; ")
+		out.Custom["Genre"] = []string{strings.Join(release.Genres, "; ")}
 	}
 
 	// Check if this Discogs release has a MusicBrainz ID in identifiers
 	for _, id := range release.Identifiers {
 		if id.Type == "barcode" && id.Value != "" {
-			out.Custom["BARCODE"] = id.Value
+			out.Custom["BARCODE"] = []string{id.Value}
 		}
 	}
-
-	c.cleanupOtherCustom(&out)
-	c.uniquifyOtherCustom(&out)
 
 	changed := !tagsEquivalent(in, &out)
 	return &out, changed, nil

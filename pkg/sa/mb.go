@@ -76,7 +76,10 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 	releaseid := overrideID
 	if releaseid == "" {
 		var ok bool
-		releaseid, ok = in.Custom["MusicBrainz Album Id"]
+		if vals, found := in.Custom["MusicBrainz Album Id"]; found && len(vals) > 0 {
+			releaseid = vals[0]
+			ok = true
+		}
 		if !ok {
 			log.Println("no release ID, skipping")
 			return in, false, nil
@@ -89,15 +92,27 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 			log.Printf("malformed MusicBrainz ID found and removed: %q", releaseid)
 			out := *in
 			if out.Custom != nil {
-				newCustom := make(map[string]string)
+				newCustom := make(map[string][]string)
 				for k, v := range out.Custom {
-					newCustom[k] = v
+					vCopy := make([]string, len(v))
+					copy(vCopy, v)
+					newCustom[k] = vCopy
 				}
 				delete(newCustom, "MusicBrainz Album Id")
 				// Also scrub other potentially malformed MBIDs
-				for k, v := range newCustom {
-					if strings.HasPrefix(k, "MusicBrainz") && !isMBID(v) {
-						delete(newCustom, k)
+				for k, vals := range newCustom {
+					if strings.HasPrefix(k, "MusicBrainz") {
+						var validVals []string
+						for _, v := range vals {
+							if isMBID(v) {
+								validVals = append(validVals, v)
+							}
+						}
+						if len(validVals) == 0 {
+							delete(newCustom, k)
+						} else {
+							newCustom[k] = validVals
+						}
 					}
 				}
 				out.Custom = newCustom
@@ -117,7 +132,10 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 		return in, false, nil
 	}
 
-	recordingID := in.Custom["MusicBrainz Track Id"]
+	var recordingID string
+	if vals, ok := in.Custom["MusicBrainz Track Id"]; ok && len(vals) > 0 {
+		recordingID = vals[0]
+	}
 
 	// Track and Disc numbers are required for matching within a release
 	if in.TrackNumber < 1 {
@@ -213,12 +231,14 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 	// Start with a copy of input tags to preserve existing data
 	out := *in
 	if out.Custom == nil {
-		out.Custom = make(map[string]string)
+		out.Custom = make(map[string][]string)
 	} else {
 		// Deep copy the map to avoid side effects
-		newCustom := make(map[string]string)
+		newCustom := make(map[string][]string)
 		for k, v := range out.Custom {
-			newCustom[k] = v
+			vCopy := make([]string, len(v))
+			copy(vCopy, v)
+			newCustom[k] = vCopy
 		}
 		out.Custom = newCustom
 	}
@@ -285,15 +305,15 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 			}
 
 			if alist := c.fmtArtistListMB5(tac); alist != "" {
-				out.Custom["ARTISTS"] = alist
+				out.Custom["ARTISTS"] = []string{alist}
 			}
 			if aids := c.joinArtistIDsMB5(tac); aids != "" {
-				out.Custom["MusicBrainz Artist Id"] = aids
+				out.Custom["MusicBrainz Artist Id"] = []string{aids}
 			}
 
 			c.processRelations(recording, out.Custom, &out)
 			if isrcs := c.fmtISRCsMB5(recording); isrcs != "" {
-				out.Custom["ISRC"] = isrcs
+				out.Custom["ISRC"] = []string{isrcs}
 			}
 		}
 	}
@@ -302,12 +322,12 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 	if rg != nil {
 		origDate := mb5.String(mb5.ReleasegroupGetFirstreleasedate, unsafe.Pointer(rg))
 		if len(origDate) >= 4 {
-			out.Custom["ORIGINALDATE"] = origDate
-			out.Custom["ORIGINALYEAR"] = origDate[:4]
+			out.Custom["ORIGINALDATE"] = []string{origDate}
+			out.Custom["ORIGINALYEAR"] = []string{origDate[:4]}
 			fmt.Sscanf(origDate[:4], "%d", &out.Year)
 		}
 		if rgid := mb5.String(mb5.ReleasegroupGetID, unsafe.Pointer(rg)); rgid != "" {
-			out.Custom["MusicBrainz Release Group Id"] = rgid
+			out.Custom["MusicBrainz Release Group Id"] = []string{rgid}
 		}
 	}
 
@@ -316,33 +336,33 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 	}
 
 	if asin := mb5.String(mb5.ReleaseGetAsin, unsafe.Pointer(release)); asin != "" {
-		out.Custom["ASIN"] = asin
+		out.Custom["ASIN"] = []string{asin}
 	}
 	if barcode := mb5.String(mb5.ReleaseGetBarcode, unsafe.Pointer(release)); barcode != "" {
-		out.Custom["BARCODE"] = barcode
+		out.Custom["BARCODE"] = []string{barcode}
 	}
 
 	liList := mb5.ReleaseGetLabelinfolist(release)
 	if liList != nil {
 		if label := c.fmtLabelsMB5(liList); label != "" {
-			out.Custom["LABEL"] = label
+			out.Custom["LABEL"] = []string{label}
 		}
 		if cat := c.fmtCatalogNumbersMB5(liList); cat != "" {
-			out.Custom["CATALOGNUMBER"] = cat
+			out.Custom["CATALOGNUMBER"] = []string{cat}
 		}
 	}
 
 	countryCode := mb5.String(mb5.ReleaseGetCountry, unsafe.Pointer(release))
 	if countryCode != "" {
 		if countryName := resolveCountry(countryCode); countryName != "" {
-			out.Custom["Country"] = countryName
+			out.Custom["Country"] = []string{countryName}
 		}
-		out.Custom["MusicBrainz Album Release Country"] = countryCode
+		out.Custom["MusicBrainz Album Release Country"] = []string{countryCode}
 	}
 
 	if foundMedium != nil {
 		if format := mb5.String(mb5.MediumGetFormat, unsafe.Pointer(foundMedium)); format != "" {
-			out.Custom["MEDIA"] = mediumFormat(format)
+			out.Custom["MEDIA"] = []string{mediumFormat(format)}
 		}
 	}
 
@@ -363,7 +383,7 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 					if hyphenIdx := strings.Index(did, "-"); hyphenIdx != -1 {
 						did = did[:hyphenIdx]
 					}
-					out.Custom["Discogs Release Id"] = did
+					out.Custom["Discogs Release Id"] = []string{did}
 					if c.Config.Debug {
 						log.Printf("Found linked Discogs ID in MB: %s", did)
 					}
@@ -373,10 +393,12 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 	}
 
 	if aids := c.joinArtistIDsMB5(ac); aids != "" {
-		out.Custom["MusicBrainz Album Artist Id"] = aids
+		out.Custom["MusicBrainz Album Artist Id"] = []string{aids}
 	}
-	out.Custom["MusicBrainz Album Id"] = releaseid
-	out.Custom["MusicBrainz Track Id"] = recordingID
+	out.Custom["MusicBrainz Album Id"] = []string{releaseid}
+	if recordingID != "" {
+		out.Custom["MusicBrainz Track Id"] = []string{recordingID}
+	}
 
 	// Fallback: If AlbumArtist is still empty, use Artist
 	if out.AlbumArtist == "" && out.Artist != "" {
@@ -385,9 +407,6 @@ func (c *Curator) UpdateFromMB(ctx context.Context, in *mp4tag.MP4Tags, override
 	if out.AlbumArtistSort == "" && out.AlbumArtist != "" {
 		out.AlbumArtistSort = out.AlbumArtist
 	}
-
-	c.cleanupOtherCustom(&out)
-	c.uniquifyOtherCustom(&out)
 
 	if c.Config.Debug {
 		temp := out
@@ -423,9 +442,15 @@ func tagsEquivalent(in, out *mp4tag.MP4Tags) bool {
 	if len(in.Custom) != len(out.Custom) {
 		return false
 	}
-	for k, v := range in.Custom {
-		if normalizeString(out.Custom[k]) != normalizeString(v) {
+	for k, inVals := range in.Custom {
+		outVals, ok := out.Custom[k]
+		if !ok || len(inVals) != len(outVals) {
 			return false
+		}
+		for i := range inVals {
+			if normalizeString(inVals[i]) != normalizeString(outVals[i]) {
+				return false
+			}
 		}
 	}
 
@@ -475,7 +500,7 @@ func tagsEquivalent(in, out *mp4tag.MP4Tags) bool {
 	return reflect.DeepEqual(inCopy, outCopy)
 }
 
-func (c *Curator) processRelations(recording mb5.Recording, custom map[string]string, out *mp4tag.MP4Tags) {
+func (c *Curator) processRelations(recording mb5.Recording, custom map[string][]string, out *mp4tag.MP4Tags) {
 	rll := mb5.RecordingGetRelationlistlist(recording)
 	if rll == nil {
 		return
@@ -517,10 +542,10 @@ func (c *Curator) processRelations(recording mb5.Recording, custom map[string]st
 				work := mb5.RelationGetWork(rel)
 				if work != nil {
 					if wid := mb5.String(mb5.WorkGetID, unsafe.Pointer(work)); wid != "" {
-						custom["MusicBrainz Work Id"] = wid
+						custom["MusicBrainz Work Id"] = []string{wid}
 					}
 					if wtitle := mb5.String(mb5.WorkGetTitle, unsafe.Pointer(work)); wtitle != "" {
-						custom["WORK"] = wtitle
+						custom["WORK"] = []string{wtitle}
 					}
 				}
 			}
@@ -530,7 +555,7 @@ func (c *Curator) processRelations(recording mb5.Recording, custom map[string]st
 	for role, names := range credits {
 		val := strings.Join(names, ", ")
 		if val != "" {
-			custom[role] = val
+			custom[role] = []string{val}
 			if role == "COMPOSER" {
 				out.Composer = val
 			}
@@ -666,44 +691,6 @@ func (c *Curator) fmtCatalogNumbersMB5(liList mb5.LabelInfoList) string {
 	return strings.Join(cats, "; ")
 }
 
-func (c *Curator) cleanupOtherCustom(tags *mp4tag.MP4Tags) {
-	if tags.OtherCustom == nil {
-		return
-	}
-	for k := range tags.Custom {
-		delete(tags.OtherCustom, k)
-	}
-}
-
-func (c *Curator) uniquifyOtherCustom(tags *mp4tag.MP4Tags) {
-	if tags.OtherCustom == nil {
-		return
-	}
-
-	for k, vals := range tags.OtherCustom {
-		seen := make(map[string]bool)
-		unique := make([]string, 0, len(vals))
-
-		// If it's also in Custom, we definitely don't want it in OtherCustom (duplication)
-		if customVal, ok := tags.Custom[k]; ok {
-			seen[customVal] = true
-		}
-
-		for _, v := range vals {
-			if !seen[v] {
-				seen[v] = true
-				unique = append(unique, v)
-			}
-		}
-
-		if len(unique) == 0 {
-			delete(tags.OtherCustom, k)
-		} else {
-			tags.OtherCustom[k] = unique
-		}
-	}
-}
-
 func (c *Curator) UpdateFromDiscID(ctx context.Context, in *mp4tag.MP4Tags, discid string) (*mp4tag.MP4Tags, bool, error) {
 	if c.mb5query == nil {
 		return in, false, fmt.Errorf("mb5 query not initialized")
@@ -776,9 +763,9 @@ func (c *Curator) UpdateFromDiscID(ctx context.Context, in *mp4tag.MP4Tags, disc
 	out, changed, err := c.UpdateFromMB(ctx, in, releaseID)
 	if err == nil && out != nil {
 		if out.Custom == nil {
-			out.Custom = make(map[string]string)
+			out.Custom = make(map[string][]string)
 		}
-		out.Custom["MusicBrainz Disc Id"] = discid
+		out.Custom["MusicBrainz Disc Id"] = []string{discid}
 	}
 	return out, changed, err
 }
@@ -889,7 +876,7 @@ func (c *Curator) TagDirectory(ctx context.Context, dir, releaseID string, p int
 			if !c.Config.DryRun {
 				// Ensure Custom map is initialized
 				if newTags.Custom == nil {
-					newTags.Custom = make(map[string]string)
+					newTags.Custom = make(map[string][]string)
 				}
 				// Pass all custom tag keys to ensure they are saved
 				customKeys := make([]string, 0, len(newTags.Custom))

@@ -32,69 +32,18 @@ func TestInferTrackInfo(t *testing.T) {
 	}
 }
 
-func TestTagCleanup(t *testing.T) {
-	c := &Curator{}
-
-	t.Run("cleanupOtherCustom", func(t *testing.T) {
-		tags := &mp4tag.MP4Tags{
-			Custom: map[string]string{
-				"ENGINEER": "Dave Cook",
-			},
-			OtherCustom: map[string][]string{
-				"ENGINEER":      {"Dennice Brown", "Dave Cook", "Frank Filipetti"},
-				"CATALOGNUMBER": {"9 60815-2"},
-			},
-		}
-
-		c.cleanupOtherCustom(tags)
-
-		if _, ok := tags.OtherCustom["ENGINEER"]; ok {
-			t.Error("ENGINEER should have been removed from OtherCustom because it exists in Custom")
-		}
-		if _, ok := tags.OtherCustom["CATALOGNUMBER"]; !ok {
-			t.Error("CATALOGNUMBER should have been preserved in OtherCustom")
-		}
-	})
-
-	t.Run("uniquifyOtherCustom", func(t *testing.T) {
-		tags := &mp4tag.MP4Tags{
-			Custom: map[string]string{
-				"LABEL": "Elektra",
-			},
-			OtherCustom: map[string][]string{
-				"MIXER":         {"Frank Wolf", "Frank Wolf", "Frank Wolf"},
-				"CATALOGNUMBER": {"9 60738-1", "9 60738-1"},
-				"LABEL":         {"Elektra", "Warner"},
-			},
-		}
-
-		c.uniquifyOtherCustom(tags)
-
-		if len(tags.OtherCustom["MIXER"]) != 1 || tags.OtherCustom["MIXER"][0] != "Frank Wolf" {
-			t.Errorf("MIXER should be uniquely Frank Wolf, got %v", tags.OtherCustom["MIXER"])
-		}
-		if len(tags.OtherCustom["CATALOGNUMBER"]) != 1 || tags.OtherCustom["CATALOGNUMBER"][0] != "9 60738-1" {
-			t.Errorf("CATALOGNUMBER should be uniquely 9 60738-1, got %v", tags.OtherCustom["CATALOGNUMBER"])
-		}
-		// LABEL in OtherCustom should have "Elektra" removed because it is in Custom, and "Warner" should remain.
-		if len(tags.OtherCustom["LABEL"]) != 1 || tags.OtherCustom["LABEL"][0] != "Warner" {
-			t.Errorf("LABEL in OtherCustom should have Warner left, got %v", tags.OtherCustom["LABEL"])
-		}
-	})
-}
-
 func TestTagsEquivalent(t *testing.T) {
 	t.Run("normalization", func(t *testing.T) {
 		in := &mp4tag.MP4Tags{
 			Title: "Don’t Go", // Smart quote
-			Custom: map[string]string{
-				"ARTISTS": "Artist A, Artist B",
+			Custom: map[string][]string{
+				"ARTISTS": {"Artist A, Artist B"},
 			},
 		}
 		out := &mp4tag.MP4Tags{
 			Title: "Don't Go", // Standard quote
-			Custom: map[string]string{
-				"ARTISTS": "Artist A, Artist B",
+			Custom: map[string][]string{
+				"ARTISTS": {"Artist A, Artist B"},
 			},
 		}
 		if !tagsEquivalent(in, out) {
@@ -104,25 +53,13 @@ func TestTagsEquivalent(t *testing.T) {
 
 	t.Run("custom map mismatch", func(t *testing.T) {
 		in := &mp4tag.MP4Tags{
-			Custom: map[string]string{"BARCODE": "123"},
+			Custom: map[string][]string{"BARCODE": {"123"}},
 		}
 		out := &mp4tag.MP4Tags{
-			Custom: map[string]string{"BARCODE": "456"},
+			Custom: map[string][]string{"BARCODE": {"456"}},
 		}
 		if tagsEquivalent(in, out) {
 			t.Error("Tags should NOT be equivalent when Custom values differ")
-		}
-	})
-
-	t.Run("OtherCustom mismatch", func(t *testing.T) {
-		in := &mp4tag.MP4Tags{
-			OtherCustom: map[string][]string{"X-MY-TAG": {"Value 1"}},
-		}
-		out := &mp4tag.MP4Tags{
-			OtherCustom: map[string][]string{"X-MY-TAG": {"Value 1", "Value 2"}},
-		}
-		if tagsEquivalent(in, out) {
-			t.Error("Tags should NOT be equivalent when OtherCustom differs")
 		}
 	})
 }

@@ -190,21 +190,21 @@ func tag_file(d, filename, mbid string, ripdata ripdisc_t, mbdata mb_release) er
 		ItunesArtistID: -1,
 	}
 
-	newtags.Custom = make(map[string]string)
-	newtags.Custom["MusicBrainz Disc Id"] = mbid
+	newtags.Custom = make(map[string][]string)
+	newtags.Custom["MusicBrainz Disc Id"] = []string{mbid}
 	if ripdata.TOC != "" {
-		newtags.Custom["TOC"] = ripdata.TOC
+		newtags.Custom["TOC"] = []string{ripdata.TOC}
 	}
 
 	if ripdata.MCN != "" {
-		newtags.Custom["MCN"] = ripdata.MCN
+		newtags.Custom["MCN"] = []string{ripdata.MCN}
 	}
 	if ripdata.UPC_EAN != "" {
-		newtags.Custom["UPC"] = ripdata.UPC_EAN
+		newtags.Custom["UPC"] = []string{ripdata.UPC_EAN}
 	}
 
 	if mbdata.ReleaseID != "" {
-		newtags.Custom["MusicBrainz Album Id"] = mbdata.ReleaseID
+		newtags.Custom["MusicBrainz Album Id"] = []string{mbdata.ReleaseID}
 	}
 	if mbdata.AlbumArtist != "" {
 		newtags.AlbumArtist = mbdata.AlbumArtist
@@ -217,7 +217,7 @@ func tag_file(d, filename, mbid string, ripdata ripdisc_t, mbdata mb_release) er
 	}
 
 	if ripdata.Genre != "" {
-		newtags.Custom["Genre"] = ripdata.Genre
+		newtags.Custom["Genre"] = []string{ripdata.Genre}
 	}
 	if ripdata.Trackcount != 0 {
 		newtags.TrackTotal = int16(ripdata.Trackcount)
@@ -236,8 +236,8 @@ func tag_file(d, filename, mbid string, ripdata ripdisc_t, mbdata mb_release) er
 				newtags.Title = t.Title
 			}
 			if t.TrackID != "" {
-				newtags.Custom["MusicBrainz Release Track Id"] = t.TrackID
-				newtags.Custom["MusicBrainz Track Id"] = t.TrackID
+				newtags.Custom["MusicBrainz Release Track Id"] = []string{t.TrackID}
+				newtags.Custom["MusicBrainz Track Id"] = []string{t.TrackID}
 			}
 			if t.Artist != "" {
 				newtags.Artist = t.Artist
@@ -248,22 +248,22 @@ func tag_file(d, filename, mbid string, ripdata ripdisc_t, mbdata mb_release) er
 	for _, t := range ripdata.Tracks {
 		if int(t.ID) == pos {
 			if t.ISRC != "" {
-				newtags.Custom["ISRC"] = t.ISRC
+				newtags.Custom["ISRC"] = []string{t.ISRC}
 			}
 			if t.Composer != "" {
-				newtags.Custom["Composer"] = t.Composer
+				newtags.Custom["Composer"] = []string{t.Composer}
 			}
 			if t.Songwriter != "" {
-				newtags.Custom["Songwriter"] = t.Songwriter
+				newtags.Custom["Songwriter"] = []string{t.Songwriter}
 			}
 		}
 	}
 
-	if ripdata.Composer != "" && newtags.Custom["Composer"] == "" {
-		newtags.Custom["Composer"] = ripdata.Composer
+	if ripdata.Composer != "" && len(newtags.Custom["Composer"]) == 0 {
+		newtags.Custom["Composer"] = []string{ripdata.Composer}
 	}
-	if ripdata.Songwriter != "" && newtags.Custom["Songwriter"] == "" {
-		newtags.Custom["Songwriter"] = ripdata.Songwriter
+	if ripdata.Songwriter != "" && len(newtags.Custom["Songwriter"]) == 0 {
+		newtags.Custom["Songwriter"] = []string{ripdata.Songwriter}
 	}
 
 	fullpath := filepath.Join(d, filename)

@@ -84,10 +84,22 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 
 	// Working state
 	tags := inTags
-	tid := tags.Custom["MusicBrainz Album Id"]
-	discID := tags.Custom["MusicBrainz Disc Id"]
-	toc := tags.Custom["TOC"]
-	did := tags.Custom["Discogs Release Id"]
+	var tid string
+	if vals, ok := tags.Custom["MusicBrainz Album Id"]; ok && len(vals) > 0 {
+		tid = vals[0]
+	}
+	var discID string
+	if vals, ok := tags.Custom["MusicBrainz Disc Id"]; ok && len(vals) > 0 {
+		discID = vals[0]
+	}
+	var toc string
+	if vals, ok := tags.Custom["TOC"]; ok && len(vals) > 0 {
+		toc = vals[0]
+	}
+	var did string
+	if vals, ok := tags.Custom["Discogs Release Id"]; ok && len(vals) > 0 {
+		did = vals[0]
+	}
 
 	// 1. Try to find IDs from directory name if missing
 	if tid == "" && discID == "" && did == "" {
@@ -151,9 +163,14 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 		}
 		album := tags.Album
 		if artist != "" && album != "" {
-			barcode := tags.Custom["BARCODE"]
+			var barcode string
+			if vals, ok := tags.Custom["BARCODE"]; ok && len(vals) > 0 {
+				barcode = vals[0]
+			}
 			if barcode == "" || IsAllZeros(barcode) {
-				barcode = tags.Custom["MCN"]
+				if vals, ok := tags.Custom["MCN"]; ok && len(vals) > 0 {
+					barcode = vals[0]
+				}
 			}
 			if IsAllZeros(barcode) {
 				barcode = ""

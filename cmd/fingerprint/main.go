@@ -100,7 +100,11 @@ func main() {
 						if err == nil {
 							tags, err := mp4.Read()
 							if err == nil {
-								if existingFP := tags.Custom["Acoustid Fingerprint"]; existingFP != "" && !force {
+								var existingFP string
+								if vals, ok := tags.Custom["Acoustid Fingerprint"]; ok && len(vals) > 0 {
+									existingFP = vals[0]
+								}
+								if existingFP != "" && !force {
 									log.Printf("Found existing fingerprint in tags: %s", p)
 									mp4.Close()
 									continue
@@ -182,15 +186,24 @@ func syncTags(ctx context.Context, path, fp string, dur int, aid string) error {
 
 	changed := false
 	if tags.Custom == nil {
-		tags.Custom = make(map[string]string)
+		tags.Custom = make(map[string][]string)
 	}
 
-	if tags.Custom["Acoustid Id"] != aid && aid != "" {
-		tags.Custom["Acoustid Id"] = aid
+	var aidVal string
+	if vals, ok := tags.Custom["Acoustid Id"]; ok && len(vals) > 0 {
+		aidVal = vals[0]
+	}
+	if aidVal != aid && aid != "" {
+		tags.Custom["Acoustid Id"] = []string{aid}
 		changed = true
 	}
-	if tags.Custom["Acoustid Fingerprint"] != fp {
-		tags.Custom["Acoustid Fingerprint"] = fp
+
+	var fpVal string
+	if vals, ok := tags.Custom["Acoustid Fingerprint"]; ok && len(vals) > 0 {
+		fpVal = vals[0]
+	}
+	if fpVal != fp {
+		tags.Custom["Acoustid Fingerprint"] = []string{fp}
 		changed = true
 	}
 
