@@ -102,9 +102,11 @@ func main() {
 			}()
 
 			if _, err := p.Run(); err != nil {
+				cancel()
 				return err
 			}
 
+			cancel()
 			return nil
 		},
 	}

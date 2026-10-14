@@ -151,39 +151,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.Component {
 		case "ripper":
 			if p, ok := m.ripperProgresses[msg.Device]; ok {
-				cmds = append(cmds, p.SetPercent(msg.Percent))
+				p.SetPercent(msg.Percent)
 				m.ripperProgresses[msg.Device] = p
 			} else {
 				p := progress.New(progress.WithDefaultGradient())
 				p.Width = 40
-				cmds = append(cmds, p.SetPercent(msg.Percent))
+				p.SetPercent(msg.Percent)
 				m.ripperProgresses[msg.Device] = p
 			}
 		case "encoder":
-			cmds = append(cmds, m.encoderProgress.SetPercent(msg.Percent))
+			m.encoderProgress.SetPercent(msg.Percent)
 		case "tagger":
-			cmds = append(cmds, m.taggerProgress.SetPercent(msg.Percent))
-		}
-
-	case progress.FrameMsg:
-		for k, v := range m.ripperProgresses {
-			newRipper, ripperCmd := v.Update(msg)
-			m.ripperProgresses[k] = newRipper.(progress.Model)
-			if ripperCmd != nil {
-				cmds = append(cmds, ripperCmd)
-			}
-		}
-
-		newEncoder, encoderCmd := m.encoderProgress.Update(msg)
-		m.encoderProgress = newEncoder.(progress.Model)
-		if encoderCmd != nil {
-			cmds = append(cmds, encoderCmd)
-		}
-
-		newTagger, taggerCmd := m.taggerProgress.Update(msg)
-		m.taggerProgress = newTagger.(progress.Model)
-		if taggerCmd != nil {
-			cmds = append(cmds, taggerCmd)
+			m.taggerProgress.SetPercent(msg.Percent)
 		}
 
 	case MBMatchesMsg:
