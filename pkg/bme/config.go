@@ -16,6 +16,7 @@ type Config struct {
 	DoneDir     string   `json:"done_dir"`
 	EncoderPath string   `json:"encoder_path"`
 	Devices     []string `json:"devices"`
+	Speed       int      `json:"speed"`
 }
 
 func DefaultConfig() *Config {
@@ -27,6 +28,7 @@ func DefaultConfig() *Config {
 		TagDir:      filepath.Join(base, "tag"),
 		DoneDir:     filepath.Join(base, "done"),
 		EncoderPath: "/usr/local/bin/alacenc",
+		Speed:       12,
 	}
 }
 

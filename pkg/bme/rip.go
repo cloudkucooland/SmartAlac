@@ -188,9 +188,9 @@ func ripdisc(ctx context.Context, devicename string, cddevice cdio.Device, p *te
 
 	// Set a safe ripping speed (e.g., 12x) to reduce jitter/errors
 	if p != nil {
-		p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Setting drive speed (12x)..."})
+		p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Setting drive speed ..."})
 	}
-	cdio.CddapSpeedSet(cdda, 12)
+	cdio.CddapSpeedSet(cdda, AppConfig.Speed)
 
 	// just a sanity check to make sure the disc is valid
 	firstsector := cdio.CddapDiscFirstsector(cdda)

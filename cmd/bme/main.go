@@ -50,6 +50,12 @@ func main() {
 				Aliases: []string{"V"},
 				Usage:   "verbose info dumps",
 			},
+			&cli.IntFlag{
+				Name:    "speed",
+				Value:   12,
+				Aliases: []string{"S"},
+				Usage:   "CD reader speed multiplier",
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
 			bme.Debug(cmd.Bool("debug"))
