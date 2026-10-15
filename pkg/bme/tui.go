@@ -58,13 +58,16 @@ var (
 
 type model struct {
 	ripperStatuses   map[string]string
-	ripperProgresses map[string]progress.Model
+	ripperPercents   map[string]float64
 	encoderStatus    string
 	taggerStatus     string
 	paranoiaMode     string
 
-	encoderProgress progress.Model
-	taggerProgress  progress.Model
+	encoderPercent   float64
+	taggerPercent    float64
+
+	encoderProgress  progress.Model
+	taggerProgress   progress.Model
 
 	mbMatches []mb_release
 	mbList    list.Model
@@ -78,7 +81,7 @@ type model struct {
 func NewModel() model {
 	return model{
 		ripperStatuses:   make(map[string]string),
-		ripperProgresses: make(map[string]progress.Model),
+		ripperPercents:   make(map[string]float64),
 		encoderStatus:    "Idle",
 		taggerStatus:     "Idle",
 		paranoiaMode:     GetParanoiaName(),
@@ -100,10 +103,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		for k, v := range m.ripperProgresses {
-			v.Width = 40
-			m.ripperProgresses[k] = v
-		}
 		m.encoderProgress.Width = 40
 		m.taggerProgress.Width = 40
 
@@ -117,10 +116,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				statusChanged = true
 			}
 			m.ripperStatuses[msg.Device] = msg.Status
-			if _, ok := m.ripperProgresses[msg.Device]; !ok {
-				p := progress.New(progress.WithDefaultGradient())
-				p.Width = 40
-				m.ripperProgresses[msg.Device] = p
+			if _, ok := m.ripperPercents[msg.Device]; !ok {
+				m.ripperPercents[msg.Device] = 0.0
 			}
 			styledStatus = ripperStyle.Render(fmt.Sprintf("[%s:%s] %s", msg.Component, msg.Device, msg.Status))
 		case "encoder":
@@ -150,19 +147,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case ProgressMsg:
 		switch msg.Component {
 		case "ripper":
-			if p, ok := m.ripperProgresses[msg.Device]; ok {
-				p.SetPercent(msg.Percent)
-				m.ripperProgresses[msg.Device] = p
-			} else {
-				p := progress.New(progress.WithDefaultGradient())
-				p.Width = 40
-				p.SetPercent(msg.Percent)
-				m.ripperProgresses[msg.Device] = p
-			}
+			m.ripperPercents[msg.Device] = msg.Percent
 		case "encoder":
-			m.encoderProgress.SetPercent(msg.Percent)
+			m.encoderPercent = msg.Percent
 		case "tagger":
-			m.taggerProgress.SetPercent(msg.Percent)
+			m.taggerPercent = msg.Percent
 		}
 
 	case MBMatchesMsg:
@@ -230,13 +219,13 @@ func (m model) View() string {
 
 	for _, k := range keys {
 		status := m.ripperStatuses[k]
-		prog := m.ripperProgresses[k]
+		pct := m.ripperPercents[k]
 		ripperViews = append(ripperViews, ripperStyle.Render(fmt.Sprintf("Ripper(%s): ", k))+status)
-		ripperViews = append(ripperViews, prog.View())
+		ripperViews = append(ripperViews, m.encoderProgress.ViewAs(pct))
 	}
 	if len(ripperViews) == 0 {
 		ripperViews = append(ripperViews, ripperStyle.Render("Ripper:   ")+"Idle")
-		ripperViews = append(ripperViews, m.encoderProgress.View()) // dummy to keep spacing? No, maybe just empty.
+		ripperViews = append(ripperViews, m.encoderProgress.ViewAs(0.0))
 	}
 
 	encoderView := encoderStyle.Render("Encoder:  ") + m.encoderStatus
@@ -254,9 +243,9 @@ func (m model) View() string {
 	statusElements = append(statusElements, ripperViews...)
 	statusElements = append(statusElements,
 		encoderView,
-		m.encoderProgress.View(),
+		m.encoderProgress.ViewAs(m.encoderPercent),
 		taggerView,
-		m.taggerProgress.View(),
+		m.taggerProgress.ViewAs(m.taggerPercent),
 		"\n"+paranoiaView,
 	)
 
