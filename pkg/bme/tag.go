@@ -16,7 +16,7 @@ import (
 )
 
 // Channel for TUI to send selection back to tagger
-var selectionChan = make(chan mb_release)
+var selectionChan = make(chan mb_release, 10)
 
 func tagger(ctx context.Context, p *tea.Program) {
 	if p != nil {
@@ -122,6 +122,14 @@ func tag_process_directory(ctx context.Context, mbid string, p *tea.Program) err
 		} else {
 			// Multiple matches - trigger TUI menu
 			if p != nil {
+				for {
+					select {
+					case <-selectionChan:
+					default:
+						goto drained
+					}
+				}
+			drained:
 				p.Send(MBMatchesMsg{MBID: mbid, Releases: releases})
 				// Wait for selection
 				select {
