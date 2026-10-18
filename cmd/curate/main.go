@@ -4,17 +4,19 @@ import (
 	"context"
 	"log"
 	"os"
+	"os/signal"
+	"syscall"
 
-	"github.com/cloudkucooland/SmartAlac"
+	"github.com/cloudkucooland/SmartAlac/pkg/sa"
 	"github.com/urfave/cli/v3"
 )
 
 func main() {
 	app := &cli.Command{
-		Name:    "curate",
-		Usage:   "Smart ALAC curator using MusicBrainz",
-		Version: "v0.6.0",
-		Authors: []any{"Scot C. Bontrager <cloudkucooland@gmail.com>"},
+		Name:      "curate",
+		Usage:     "Smart ALAC curator using MusicBrainz",
+		Version:   "v0.6.0",
+		Authors:   []any{"Scot C. Bontrager <cloudkucooland@gmail.com>"},
 		Copyright: "© 2025 Scot C. Bontrager",
 
 		Flags: []cli.Flag{
@@ -60,21 +62,49 @@ func main() {
 				Usage:   "AcoustID API key for fingerprinting fallback",
 				Sources: cli.EnvVars("ACOUSTID_KEY"),
 			},
+			&cli.StringFlag{
+				Name:  "discogs-token",
+				Usage: "Discogs API token",
+			},
+			&cli.StringFlag{
+				Name:  "fpcalc",
+				Usage: "path to fpcalc binary",
+				Value: "fpcalc",
+			},
 		},
 		Action: func(ctx context.Context, cmd *cli.Command) error {
+
+			shared := sa.LoadSharedConfig()
+
 			cfg := sa.Config{
-				DryRun:      cmd.Bool("dryrun"),
-				Debug:       cmd.Bool("debug"),
-				SkipMB:      cmd.Bool("skipmb"),
-				SkipMove:    cmd.Bool("skipmove"),
-				Overwrite:   cmd.Bool("overwrite"),
-				FinalDir:    cmd.String("finaldir"),
-				AcoustIDKey: cmd.String("acoustid-key"),
+				DryRun:       cmd.Bool("dryrun"),
+				Debug:        cmd.Bool("debug"),
+				SkipMB:       cmd.Bool("skipmb"),
+				SkipMove:     cmd.Bool("skipmove"),
+				Overwrite:    cmd.Bool("overwrite"),
+				FinalDir:     cmd.String("finaldir"),
+				AcoustIDKey:  cmd.String("acoustid-key"),
+				DiscogsToken: cmd.String("discogs-token"),
+				FpcalcPath:   cmd.String("fpcalc"),
+			}
+
+			if cfg.FinalDir == "" {
+				cfg.FinalDir = shared.FinalDir
+			}
+			if cfg.AcoustIDKey == "" {
+				cfg.AcoustIDKey = shared.AcoustIDKey
+			}
+			if cfg.DiscogsToken == "" {
+				cfg.DiscogsToken = shared.DiscogsToken
+			}
+			if cfg.FpcalcPath == "fpcalc" && shared.FpcalcPath != "" {
+				cfg.FpcalcPath = shared.FpcalcPath
 			}
 
 			curator := sa.NewCurator(cfg)
+
 			dir := cmd.String("dir")
-			if err := curator.WalkTree(dir); err != nil {
+			if err := curator.WalkTree(ctx, dir); err != nil {
 				return err
 			}
 
@@ -83,7 +113,9 @@ func main() {
 		},
 	}
 
-	if err := app.Run(context.Background(), os.Args); err != nil {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := app.Run(ctx, os.Args); err != nil {
 		log.Fatal(err)
 	}
 }

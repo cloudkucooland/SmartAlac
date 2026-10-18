@@ -1,0 +1,104 @@
+package sa
+
+import (
+	"github.com/Sorrow446/go-mp4tag"
+	"testing"
+)
+
+func TestInferTrackInfo(t *testing.T) {
+	cases := []struct {
+		name      string
+		wantDisc  int16
+		wantTrack int16
+	}{
+		{"01 National Brotherhood Week.wav.m4a", 0, 1},
+		{"1-13 New Math.m4a", 1, 13},
+		{"7 Pollution.m4a", 0, 7},
+		{"1-7 Something.m4a", 1, 7},
+		{"08 So Long, Mom (A Song for World War III).wav.m4a", 0, 8},
+		{"NoNumber.m4a", 0, 0},
+		{"  09  Whitespace.m4a", 0, 9},
+		{"2-01 CD2 Track 1.m4a", 2, 1},
+		{"invalid-format.m4a", 0, 0},
+		{"10-25 Huge Numbers.m4a", 10, 25},
+		{"-5 Negative.m4a", 0, 5},
+	}
+
+	for _, c := range cases {
+		gotDisc, gotTrack := inferTrackInfo(c.name)
+		if gotDisc != c.wantDisc || gotTrack != c.wantTrack {
+			t.Errorf("inferTrackInfo(%q) == (%d, %d), want (%d, %d)", c.name, gotDisc, gotTrack, c.wantDisc, c.wantTrack)
+		}
+	}
+}
+
+func TestTagsEquivalent(t *testing.T) {
+	t.Run("normalization", func(t *testing.T) {
+		in := &mp4tag.MP4Tags{
+			Title: "Don’t Go", // Smart quote
+			Custom: map[string][]string{
+				"ARTISTS": {"Artist A, Artist B"},
+			},
+		}
+		out := &mp4tag.MP4Tags{
+			Title: "Don't Go", // Standard quote
+			Custom: map[string][]string{
+				"ARTISTS": {"Artist A, Artist B"},
+			},
+		}
+		if !tagsEquivalent(in, out) {
+			t.Error("Tags should be equivalent despite quote differences")
+		}
+	})
+
+	t.Run("custom map mismatch", func(t *testing.T) {
+		in := &mp4tag.MP4Tags{
+			Custom: map[string][]string{"BARCODE": {"123"}},
+		}
+		out := &mp4tag.MP4Tags{
+			Custom: map[string][]string{"BARCODE": {"456"}},
+		}
+		if tagsEquivalent(in, out) {
+			t.Error("Tags should NOT be equivalent when Custom values differ")
+		}
+	})
+}
+
+func TestMBIDValidation(t *testing.T) {
+	cases := []struct {
+		id   string
+		want bool
+	}{
+		{"8f310f54-5544-4861-820f-07ef898319f3", true},
+		{"8f310f5455444861820f07ef898319f3", false}, // missing hyphens
+		{"0", false},
+		{"", false},
+		{"invalid-uuid-length", false},
+		{"8f310f54-5544-4861-820f-07ef898319f3 extra", false},
+	}
+
+	for _, c := range cases {
+		if got := isMBID(c.id); got != c.want {
+			t.Errorf("isMBID(%q) == %v, want %v", c.id, got, c.want)
+		}
+	}
+}
+
+func TestIsAllZeros(t *testing.T) {
+	cases := []struct {
+		s    string
+		want bool
+	}{
+		{"0000000000000", true},
+		{"0", true},
+		{"", false},
+		{"0001000", false},
+		{"12345", false},
+	}
+
+	for _, c := range cases {
+		if got := IsAllZeros(c.s); got != c.want {
+			t.Errorf("IsAllZeros(%q) == %v, want %v", c.s, got, c.want)
+		}
+	}
+}
