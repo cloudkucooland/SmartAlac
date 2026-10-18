@@ -57,17 +57,17 @@ var (
 )
 
 type model struct {
-	ripperStatuses   map[string]string
-	ripperPercents   map[string]float64
-	encoderStatus    string
-	taggerStatus     string
-	paranoiaMode     string
+	ripperStatuses map[string]string
+	ripperPercents map[string]float64
+	encoderStatus  string
+	taggerStatus   string
+	paranoiaMode   string
 
-	encoderPercent   float64
-	taggerPercent    float64
+	encoderPercent float64
+	taggerPercent  float64
 
-	encoderProgress  progress.Model
-	taggerProgress   progress.Model
+	encoderProgress progress.Model
+	taggerProgress  progress.Model
 
 	mbMatches []mb_release
 	mbList    list.Model
@@ -80,14 +80,14 @@ type model struct {
 
 func NewModel() model {
 	return model{
-		ripperStatuses:   make(map[string]string),
-		ripperPercents:   make(map[string]float64),
-		encoderStatus:    "Idle",
-		taggerStatus:     "Idle",
-		paranoiaMode:     GetParanoiaName(),
-		encoderProgress:  progress.New(progress.WithDefaultGradient()),
-		taggerProgress:   progress.New(progress.WithDefaultGradient()),
-		logs:             make([]string, 0),
+		ripperStatuses:  make(map[string]string),
+		ripperPercents:  make(map[string]float64),
+		encoderStatus:   "Idle",
+		taggerStatus:    "Idle",
+		paranoiaMode:    GetParanoiaName(),
+		encoderProgress: progress.New(progress.WithDefaultGradient()),
+		taggerProgress:  progress.New(progress.WithDefaultGradient()),
+		logs:            make([]string, 0),
 	}
 }
 
@@ -103,8 +103,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		m.encoderProgress.Width = 40
-		m.taggerProgress.Width = 40
+		progressWidth := msg.Width - 8
+		if progressWidth > 40 {
+			progressWidth = 40
+		}
+		if progressWidth < 1 {
+			progressWidth = 1
+		}
+		m.encoderProgress.Width = progressWidth
+		m.taggerProgress.Width = progressWidth
+		if m.selecting {
+			m.mbList.SetSize(max(1, msg.Width-10), max(1, msg.Height-15))
+		}
 
 	case StatusMsg:
 		var styledStatus string
@@ -161,7 +171,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		for i, r := range msg.Releases {
 			items[i] = mbItem{r}
 		}
-		m.mbList = list.New(items, list.NewDefaultDelegate(), m.width-10, m.height-15)
+		listWidth := max(1, m.width-10)
+		listHeight := max(1, m.height-15)
+		m.mbList = list.New(items, list.NewDefaultDelegate(), listWidth, listHeight)
 		m.mbList.Title = fmt.Sprintf("Select Release for DiscID: %s", msg.MBID)
 
 	case tea.KeyMsg:
@@ -176,7 +188,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.selecting {
 			switch msg.String() {
 			case "enter":
-				selected := m.mbList.SelectedItem().(mbItem).release
+				item, ok := m.mbList.SelectedItem().(mbItem)
+				if !ok {
+					return m, nil
+				}
+				selected := item.release
 				m.selecting = false
 				// Send back to tagger
 				go func() {
@@ -234,8 +250,8 @@ func (m model) View() string {
 
 	// Calculate heights
 	mainHeight := m.height - 6
-	if mainHeight < 10 {
-		mainHeight = 10
+	if mainHeight < 1 {
+		mainHeight = 1
 	}
 	// with multiple rippers, we might need more space, but let's see.
 
@@ -249,8 +265,14 @@ func (m model) View() string {
 		"\n"+paranoiaView,
 	)
 
+	statusWidth := 44
+	if m.width > 0 && m.width < statusWidth+10 {
+		statusWidth = max(1, m.width-2)
+	}
 	statusCol := statusStyle.
+		Width(statusWidth).
 		Height(mainHeight).
+		MaxHeight(mainHeight).
 		Render(lipgloss.JoinVertical(lipgloss.Left, statusElements...))
 
 	// Take last N lines of logs that fit in height
@@ -265,12 +287,20 @@ func (m model) View() string {
 	}
 	logContent := strings.Join(displayLogs, "\n")
 
+	logWidth := m.width - statusWidth - 5
+	if logWidth < 1 {
+		logWidth = 1
+	}
 	logView := logStyle.
-		Width(m.width - 49).
+		Width(logWidth).
 		Height(mainHeight).
+		MaxHeight(mainHeight).
 		Render(logContent)
 
-	mainView := lipgloss.JoinHorizontal(lipgloss.Top, statusCol, logView)
+	mainView := lipgloss.JoinVertical(lipgloss.Left, statusCol, logView)
+	if m.width == 0 || m.width >= statusWidth+logWidth+5 {
+		mainView = lipgloss.JoinHorizontal(lipgloss.Top, statusCol, logView)
+	}
 
 	if m.selecting {
 		return lipgloss.JoinVertical(lipgloss.Left,
