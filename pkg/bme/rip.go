@@ -12,11 +12,17 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 	"unsafe"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/cloudkucooland/SmartAlac/pkg/cdio"
+)
+
+var (
+	trayOpenMu sync.Mutex
+	trayOpen   = make(map[string]bool)
 )
 
 type BufWriter interface {
@@ -81,7 +87,12 @@ func cdio_worker(ctx context.Context, devicename string, p *tea.Program) {
 				continue
 			}
 
-			if opened := cdio.MmcGetTrayStatus(cddevice); opened {
+			opened := cdio.MmcGetTrayStatus(cddevice)
+			trayOpenMu.Lock()
+			trayOpen[devicename] = opened
+			trayOpenMu.Unlock()
+
+			if opened {
 				if p != nil {
 					p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Tray open"})
 				}
@@ -190,7 +201,7 @@ func ripdisc(ctx context.Context, devicename string, cddevice cdio.Device, p *te
 	if p != nil {
 		p.Send(StatusMsg{Component: "ripper", Device: devicename, Status: "Setting drive speed ..."})
 	}
-	cdio.CddapSpeedSet(cdda, AppConfig.Speed)
+	cdio.CddapSpeedSet(cdda, int32(AppConfig.Speed))
 
 	// just a sanity check to make sure the disc is valid
 	firstsector := cdio.CddapDiscFirstsector(cdda)
@@ -295,7 +306,7 @@ func get_mbdiscid(cddevice cdio.Device) string {
 	fmt.Fprintf(h, "%02X%02X%08X", first_track, totaltracks, leadout)
 
 	for i := first_track; i < 100; i++ {
-		lba := 0
+		var lba int32
 		if i <= totaltracks {
 			lba = cdio.GetTrackLba(cddevice, i)
 		}

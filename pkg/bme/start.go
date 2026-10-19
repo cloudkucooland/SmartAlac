@@ -88,6 +88,21 @@ func cdioLogHandler(level int, message *byte) {
 		return
 	}
 
+	if strings.Contains(msg, "CDIOCALLOW") {
+		trayOpenMu.Lock()
+		anyOpen := false
+		for _, open := range trayOpen {
+			if open {
+				anyOpen = true
+				break
+			}
+		}
+		trayOpenMu.Unlock()
+		if anyOpen {
+			return
+		}
+	}
+
 	levelStr := "info"
 	switch cdio.LogLevel(level) {
 	case cdio.LogDebug:

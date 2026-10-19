@@ -63,8 +63,8 @@ func TestGetMbdiscid(t *testing.T) {
 		cdio.LeadoutTrack: 45000,
 	}
 
-	cdio.GetTrackLba = func(d cdio.Device, track cdio.Track) int {
-		return lbas[track]
+	cdio.GetTrackLba = func(d cdio.Device, track cdio.Track) int32 {
+		return int32(lbas[track])
 	}
 
 	discid := get_mbdiscid(nil)
