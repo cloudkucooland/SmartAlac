@@ -2,6 +2,7 @@ package picker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -39,6 +40,8 @@ type model struct {
 	mode        mode
 	curator     *sa.Curator
 	targetDir   string
+	toc         string
+	discID      string
 	artistInput textinput.Model
 	albumInput  textinput.Model
 	mcnInput    textinput.Model
@@ -63,10 +66,26 @@ func NewModel(c *sa.Curator, dir string) model {
 	mcn := textinput.New()
 	mcn.Placeholder = "MCN / Barcode"
 
+	var toc string
+	var discID string
+	ripdatapath := filepath.Join(dir, "ripdata.json")
+	if data, err := os.ReadFile(ripdatapath); err == nil {
+		var rd struct {
+			TOC      string `json:"TOC"`
+			MBdiscid string `json:"MBdiscid"`
+		}
+		if json.Unmarshal(data, &rd) == nil {
+			toc = rd.TOC
+			discID = rd.MBdiscid
+		}
+	}
+
 	m := model{
 		state:       stateInput,
 		curator:     c,
 		targetDir:   dir,
+		toc:         toc,
+		discID:      discID,
 		artistInput: art,
 		albumInput:  alb,
 		mcnInput:    mcn,
@@ -91,6 +110,16 @@ func NewModel(c *sa.Curator, dir string) model {
 				if vals, ok := tags.Custom["MusicBrainz Album Id"]; ok && len(vals) > 0 {
 					mbid = vals[0]
 				}
+				if m.toc == "" {
+					if vals, ok := tags.Custom["TOC"]; ok && len(vals) > 0 {
+						m.toc = vals[0]
+					}
+				}
+				if m.discID == "" {
+					if vals, ok := tags.Custom["MusicBrainz Disc Id"]; ok && len(vals) > 0 {
+						m.discID = vals[0]
+					}
+				}
 				var barcode string
 				if vals, ok := tags.Custom["BARCODE"]; ok && len(vals) > 0 {
 					barcode = vals[0]
@@ -113,7 +142,7 @@ func NewModel(c *sa.Curator, dir string) model {
 				m.albumInput.SetValue(album)
 				m.mcnInput.SetValue(barcode)
 
-				if mbid == "" && barcode != "" {
+				if mbid == "" && barcode != "" && m.toc == "" && m.discID == "" {
 					m.mode = modeDiscogs
 				}
 			}
@@ -179,7 +208,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.error = nil
 				return m, func() tea.Msg {
 					if m.mode == modeMusicBrainz {
-						res, err := m.curator.SearchMB(context.Background(), m.artistInput.Value(), m.albumInput.Value())
+						var res []sa.MBRelease
+						var err error
+						if m.toc != "" {
+							res, err = m.curator.SearchByTOC(context.Background(), m.toc)
+						} else if m.discID != "" {
+							res, err = m.curator.SearchByTOC(context.Background(), m.discID)
+						} else {
+							res, err = m.curator.SearchMB(context.Background(), m.artistInput.Value(), m.albumInput.Value())
+						}
 						if err != nil {
 							return errorMsg(err)
 						}

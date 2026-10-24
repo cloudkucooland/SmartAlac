@@ -770,6 +770,29 @@ func (c *Curator) UpdateFromDiscID(ctx context.Context, in *mp4tag.MP4Tags, disc
 	return out, changed, err
 }
 
+func (c *Curator) UpdateFromTOC(ctx context.Context, in *mp4tag.MP4Tags, toc string) (*mp4tag.MP4Tags, bool, error) {
+	releases, err := c.SearchByTOC(ctx, toc)
+	if err != nil {
+		return in, false, err
+	}
+	if len(releases) == 0 {
+		return in, false, nil
+	}
+	releaseID := releases[0].ID
+	if c.Config.Debug {
+		log.Printf("resolved toc to release %s\n", releaseID)
+	}
+
+	out, changed, err := c.UpdateFromMB(ctx, in, releaseID)
+	if err == nil && out != nil {
+		if out.Custom == nil {
+			out.Custom = make(map[string][]string)
+		}
+		out.Custom["TOC"] = []string{toc}
+	}
+	return out, changed, err
+}
+
 func (c *Curator) AcoustIDLookup(ctx context.Context, fingerprint string, duration int) (string, error) {
 	if c.Config.AcoustIDKey == "" {
 		return "", fmt.Errorf("AcoustID key not set")
@@ -921,4 +944,104 @@ func inferTrackInfo(name string) (disc, track int16) {
 		}
 	}
 	return
+}
+
+func (c *Curator) SearchByTOC(ctx context.Context, toc string) ([]MBRelease, error) {
+	if c.mb5query == nil {
+		return nil, fmt.Errorf("mb5 query not initialized")
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	formattedTOC := toc
+	if !strings.HasPrefix(toc, "-?toc=") {
+		formattedTOC = "-?toc=" + strings.ReplaceAll(toc, " ", "+") + "&media-format=all"
+	} else if !strings.Contains(toc, "media-format=") {
+		formattedTOC = toc + "&media-format=all"
+	}
+
+	c.rl.Take()
+
+	var metadata mb5.Metadata
+	var retryCount int
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		metadata = mb5.QueryQuery(c.mb5query, "discid", formattedTOC, "", 0, nil, nil)
+		if metadata != nil {
+			break
+		}
+
+		lastCode := mb5.QueryGetLasthttpcode(c.mb5query)
+		if lastCode == 503 && retryCount < 3 {
+			retryCount++
+			log.Printf("MusicBrainz returned 503 (discid/toc), retrying in 5 seconds (attempt %d/3)...", retryCount)
+			select {
+			case <-time.After(5 * time.Second):
+			case <-ctx.Done():
+				return nil, ctx.Err()
+			}
+			continue
+		}
+
+		if lastCode == 404 {
+			return nil, nil
+		}
+
+		return nil, fmt.Errorf("discid/toc lookup failed for %s (HTTP %d)", toc, lastCode)
+	}
+	defer mb5.MetadataDelete(metadata)
+
+	disc := mb5.MetadataGetDisc(metadata)
+	if disc == nil {
+		return nil, nil
+	}
+
+	rl := mb5.DiscGetReleaselist(disc)
+	if rl == nil || mb5.ReleaseListSize(rl) == 0 {
+		return nil, nil
+	}
+
+	size := mb5.ReleaseListSize(rl)
+	results := make([]MBRelease, 0, size)
+	for i := 0; i < size; i++ {
+		rel := mb5.ReleaseListItem(rl, i)
+		var r MBRelease
+		r.ID = mb5.String(mb5.ReleaseGetID, unsafe.Pointer(rel))
+		r.Title = mb5.String(mb5.ReleaseGetTitle, unsafe.Pointer(rel))
+		r.Date = mb5.String(mb5.ReleaseGetDate, unsafe.Pointer(rel))
+		r.Country = mb5.String(mb5.ReleaseGetCountry, unsafe.Pointer(rel))
+		r.Barcode = mb5.String(mb5.ReleaseGetBarcode, unsafe.Pointer(rel))
+		r.Disambiguation = mb5.String(mb5.ReleaseGetDisambiguation, unsafe.Pointer(rel))
+
+		ac := mb5.ReleaseGetArtistcredit(rel)
+		r.Artist = c.fmtArtistCreditMB5(ac)
+
+		ml := mb5.ReleaseGetMediumlist(rel)
+		if ml != nil {
+			r.TrackCount = mb5.MediumListGetTrackcount(ml)
+			if mb5.MediumListSize(ml) > 0 {
+				med := mb5.MediumListItem(ml, 0)
+				r.Media = mb5.String(mb5.MediumGetFormat, unsafe.Pointer(med))
+			}
+		}
+
+		liList := mb5.ReleaseGetLabelinfolist(rel)
+		if liList != nil {
+			r.Label = c.fmtLabelsMB5(liList)
+			r.CatalogNumber = c.fmtCatalogNumbersMB5(liList)
+		}
+
+		results = append(results, r)
+	}
+
+	return results, nil
 }

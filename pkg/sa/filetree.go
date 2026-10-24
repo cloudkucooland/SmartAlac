@@ -2,6 +2,7 @@ package sa
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -82,6 +83,35 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 		log.Printf("%# v\n", pretty.Formatter(inTags.Custom))
 	}
 
+	// Load ripdata.json if present in the directory
+	type ripTrackData struct {
+		ID         int    `json:"ID"`
+		Title      string `json:"Title"`
+		Performer  string `json:"Performer"`
+		Songwriter string `json:"Songwriter"`
+		Composer   string `json:"Composer"`
+		ISRC       string `json:"ISRC"`
+	}
+	type ripData struct {
+		MBdiscid   string         `json:"MBdiscid"`
+		TOC        string         `json:"TOC"`
+		MCN        string         `json:"MCN"`
+		UPC_EAN    string         `json:"UPC_EAN"`
+		Genre      string         `json:"Genre"`
+		Composer   string         `json:"Composer"`
+		Songwriter string         `json:"Songwriter"`
+		Trackcount int            `json:"Trackcount"`
+		Tracks     []ripTrackData `json:"Tracks"`
+	}
+	var rd ripData
+	var hasRipData bool
+	ripdatapath := filepath.Join(filepath.Dir(p), "ripdata.json")
+	if data, err := os.ReadFile(ripdatapath); err == nil {
+		if json.Unmarshal(data, &rd) == nil {
+			hasRipData = true
+		}
+	}
+
 	// Working state
 	tags := inTags
 	var tid string
@@ -91,11 +121,17 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 	var discID string
 	if vals, ok := tags.Custom["MusicBrainz Disc Id"]; ok && len(vals) > 0 {
 		discID = vals[0]
+	} else if hasRipData && rd.MBdiscid != "" {
+		discID = rd.MBdiscid
 	}
+
 	var toc string
 	if vals, ok := tags.Custom["TOC"]; ok && len(vals) > 0 {
 		toc = vals[0]
+	} else if hasRipData && rd.TOC != "" {
+		toc = rd.TOC
 	}
+
 	var did string
 	if vals, ok := tags.Custom["Discogs Release Id"]; ok && len(vals) > 0 {
 		did = vals[0]
@@ -113,6 +149,8 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 					did = strings.TrimPrefix(potentialID, "discogs:")
 				}
 			}
+		} else if strings.HasSuffix(dir, "-") && len(dir) > 10 && !isMBID(dir) {
+			discID = dir
 		}
 	}
 
@@ -188,14 +226,13 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 
 	if tid != "" {
 		finalTags, changed, err = c.UpdateFromMB(c.ctx, inTags, tid)
+	} else if toc != "" {
+		finalTags, changed, err = c.UpdateFromTOC(c.ctx, inTags, toc)
 	} else if discID != "" {
 		finalTags, changed, err = c.UpdateFromDiscID(c.ctx, inTags, discID)
 	} else if did != "" {
 		didInt, _ := strconv.Atoi(did)
 		finalTags, changed, err = c.UpdateFromDiscogs(c.ctx, inTags, didInt)
-	} else if toc != "" {
-		// Just fresh data from MB if TOC exists
-		finalTags, changed, err = c.UpdateFromMB(c.ctx, inTags, "")
 	}
 
 	if err != nil {
@@ -206,6 +243,60 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 	if finalTags == nil {
 		log.Printf("no way to resolve metadata for %s", p)
 		return nil
+	}
+
+	if hasRipData {
+		if finalTags.Custom == nil {
+			finalTags.Custom = make(map[string][]string)
+		}
+		if rd.TOC != "" && len(finalTags.Custom["TOC"]) == 0 {
+			finalTags.Custom["TOC"] = []string{rd.TOC}
+			changed = true
+		}
+		if rd.MBdiscid != "" && len(finalTags.Custom["MusicBrainz Disc Id"]) == 0 {
+			finalTags.Custom["MusicBrainz Disc Id"] = []string{rd.MBdiscid}
+			changed = true
+		}
+		if rd.MCN != "" && len(finalTags.Custom["MCN"]) == 0 {
+			finalTags.Custom["MCN"] = []string{rd.MCN}
+			changed = true
+		}
+		if rd.UPC_EAN != "" && len(finalTags.Custom["UPC"]) == 0 {
+			finalTags.Custom["UPC"] = []string{rd.UPC_EAN}
+			changed = true
+		}
+		if rd.Genre != "" && len(finalTags.Custom["Genre"]) == 0 {
+			finalTags.Custom["Genre"] = []string{rd.Genre}
+			changed = true
+		}
+		if rd.Trackcount != 0 && finalTags.TrackTotal == 0 {
+			finalTags.TrackTotal = int16(rd.Trackcount)
+			changed = true
+		}
+		for _, t := range rd.Tracks {
+			if int(t.ID) == int(finalTags.TrackNumber) {
+				if t.ISRC != "" && len(finalTags.Custom["ISRC"]) == 0 {
+					finalTags.Custom["ISRC"] = []string{t.ISRC}
+					changed = true
+				}
+				if t.Composer != "" && len(finalTags.Custom["Composer"]) == 0 {
+					finalTags.Custom["Composer"] = []string{t.Composer}
+					changed = true
+				}
+				if t.Songwriter != "" && len(finalTags.Custom["Songwriter"]) == 0 {
+					finalTags.Custom["Songwriter"] = []string{t.Songwriter}
+					changed = true
+				}
+			}
+		}
+		if rd.Composer != "" && len(finalTags.Custom["Composer"]) == 0 {
+			finalTags.Custom["Composer"] = []string{rd.Composer}
+			changed = true
+		}
+		if rd.Songwriter != "" && len(finalTags.Custom["Songwriter"]) == 0 {
+			finalTags.Custom["Songwriter"] = []string{rd.Songwriter}
+			changed = true
+		}
 	}
 
 	c.Stats.mu.Lock()
