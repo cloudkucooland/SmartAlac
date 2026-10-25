@@ -114,6 +114,15 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 
 	// Working state
 	tags := inTags
+	if tags.TrackNumber < 1 {
+		d, t := inferTrackInfo(filepath.Base(p))
+		if t > 0 {
+			tags.TrackNumber = t
+		}
+		if d > 0 {
+			tags.DiscNumber = d
+		}
+	}
 	var tid string
 	if vals, ok := tags.Custom["MusicBrainz Album Id"]; ok && len(vals) > 0 {
 		tid = vals[0]
@@ -228,9 +237,32 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 		finalTags, changed, err = c.UpdateFromMB(c.ctx, inTags, tid)
 	} else if toc != "" {
 		finalTags, changed, err = c.UpdateFromTOC(c.ctx, inTags, toc)
-	} else if discID != "" {
+	}
+
+	if finalTags == nil && discID != "" {
 		finalTags, changed, err = c.UpdateFromDiscID(c.ctx, inTags, discID)
-	} else if did != "" {
+	}
+
+	if finalTags == nil && hasRipData && !c.Config.SkipMB {
+		var isrcs []string
+		for _, t := range rd.Tracks {
+			if t.ISRC != "" {
+				isrcs = append(isrcs, t.ISRC)
+			}
+		}
+		if len(isrcs) > 0 {
+			results, err := c.SearchByISRCs(c.ctx, isrcs)
+			if err == nil && len(results) > 0 {
+				selected, _ := c.SelectRelease(c.ctx, results)
+				if selected != nil {
+					tid = selected.ID
+					finalTags, changed, err = c.UpdateFromMB(c.ctx, inTags, tid)
+				}
+			}
+		}
+	}
+
+	if finalTags == nil && did != "" {
 		didInt, _ := strconv.Atoi(did)
 		finalTags, changed, err = c.UpdateFromDiscogs(c.ctx, inTags, didInt)
 	}
@@ -346,6 +378,9 @@ func (c *Curator) rename(fullpath string, tags *mp4tag.MP4Tags) error {
 	}
 	if tags.AlbumSort == "" {
 		return errors.New("AlbumSort not set, not moving")
+	}
+	if tags.TrackNumber < 1 {
+		return errors.New("TrackNumber not set or invalid, not moving")
 	}
 
 	aa := tags.AlbumArtistSort

@@ -924,6 +924,10 @@ func (c *Curator) TagDirectory(ctx context.Context, dir, releaseID string, p int
 }
 
 func inferTrackInfo(name string) (disc, track int16) {
+	ext := filepath.Ext(name)
+	if ext != "" {
+		name = strings.TrimSuffix(name, ext)
+	}
 	fields := strings.Fields(name)
 	if len(fields) > 0 {
 		firstUnit := fields[0]

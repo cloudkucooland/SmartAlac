@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/Sorrow446/go-mp4tag"
@@ -42,6 +43,7 @@ type model struct {
 	targetDir   string
 	toc         string
 	discID      string
+	isrcs       []string
 	artistInput textinput.Model
 	albumInput  textinput.Model
 	mcnInput    textinput.Model
@@ -68,15 +70,24 @@ func NewModel(c *sa.Curator, dir string) model {
 
 	var toc string
 	var discID string
+	var isrcs []string
 	ripdatapath := filepath.Join(dir, "ripdata.json")
 	if data, err := os.ReadFile(ripdatapath); err == nil {
 		var rd struct {
 			TOC      string `json:"TOC"`
 			MBdiscid string `json:"MBdiscid"`
+			Tracks   []struct {
+				ISRC string `json:"ISRC"`
+			} `json:"Tracks"`
 		}
 		if json.Unmarshal(data, &rd) == nil {
 			toc = rd.TOC
 			discID = rd.MBdiscid
+			for _, t := range rd.Tracks {
+				if t.ISRC != "" {
+					isrcs = append(isrcs, t.ISRC)
+				}
+			}
 		}
 	}
 
@@ -86,6 +97,7 @@ func NewModel(c *sa.Curator, dir string) model {
 		targetDir:   dir,
 		toc:         toc,
 		discID:      discID,
+		isrcs:       isrcs,
 		artistInput: art,
 		albumInput:  alb,
 		mcnInput:    mcn,
@@ -212,9 +224,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						var err error
 						if m.toc != "" {
 							res, err = m.curator.SearchByTOC(context.Background(), m.toc)
-						} else if m.discID != "" {
+						}
+						if (res == nil || len(res) == 0) && m.discID != "" {
 							res, err = m.curator.SearchByTOC(context.Background(), m.discID)
-						} else {
+						}
+						if (res == nil || len(res) == 0) && len(m.isrcs) > 0 {
+							res, err = m.curator.SearchByISRCs(context.Background(), m.isrcs)
+						}
+						if (res == nil || len(res) == 0) && m.toc == "" && m.discID == "" && len(m.isrcs) == 0 {
 							res, err = m.curator.SearchMB(context.Background(), m.artistInput.Value(), m.albumInput.Value())
 						}
 						if err != nil {
@@ -277,6 +294,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							mp4, err := mp4tag.Open(path)
 							if err == nil {
 								tags, _ := mp4.Read()
+								if tags.TrackNumber < 1 {
+									base := f.Name()
+									if ext := filepath.Ext(base); ext != "" {
+										base = strings.TrimSuffix(base, ext)
+									}
+									fields := strings.Fields(base)
+									if len(fields) > 0 {
+										if t, err := strconv.Atoi(fields[0]); err == nil && t > 0 {
+											tags.TrackNumber = int16(t)
+										}
+									}
+								}
 								newTags, changed, _ := m.curator.UpdateFromDiscogs(context.Background(), tags, selected.ID)
 								if changed {
 									customKeys := make([]string, 0, len(newTags.Custom))

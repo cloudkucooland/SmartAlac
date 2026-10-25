@@ -1,6 +1,7 @@
 package sa
 
 import (
+	"context"
 	"github.com/Sorrow446/go-mp4tag"
 	"testing"
 )
@@ -22,6 +23,8 @@ func TestInferTrackInfo(t *testing.T) {
 		{"invalid-format.m4a", 0, 0},
 		{"10-25 Huge Numbers.m4a", 10, 25},
 		{"-5 Negative.m4a", 0, 5},
+		{"1.m4a", 0, 1},
+		{"2.m4a", 0, 2},
 	}
 
 	for _, c := range cases {
@@ -100,5 +103,25 @@ func TestIsAllZeros(t *testing.T) {
 		if got := IsAllZeros(c.s); got != c.want {
 			t.Errorf("IsAllZeros(%q) == %v, want %v", c.s, got, c.want)
 		}
+	}
+}
+
+func TestSearchByISRCsNilQuery(t *testing.T) {
+	c := &Curator{}
+	_, err := c.SearchByISRCs(context.Background(), []string{"USMC15246584"})
+	if err == nil {
+		t.Error("Expected error when mb5query is nil, got nil")
+	}
+}
+
+func TestAbs(t *testing.T) {
+	if abs(-5) != 5 {
+		t.Errorf("abs(-5) == %d, want 5", abs(-5))
+	}
+	if abs(5) != 5 {
+		t.Errorf("abs(5) == %d, want 5", abs(5))
+	}
+	if abs(0) != 0 {
+		t.Errorf("abs(0) == %d, want 0", abs(0))
 	}
 }

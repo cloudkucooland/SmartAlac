@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/cloudkucooland/SmartAlac/pkg/mb5"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"unsafe"
@@ -76,38 +77,155 @@ func (c *Curator) SearchMB(ctx context.Context, artist, album string) ([]MBRelea
 
 	for i := 0; i < count; i++ {
 		rel := mb5.ReleaseListItem(releaseList, i)
-		var r MBRelease
-
-		r.ID = mb5.String(mb5.ReleaseGetID, unsafe.Pointer(rel))
-		r.Title = mb5.String(mb5.ReleaseGetTitle, unsafe.Pointer(rel))
-		r.Date = mb5.String(mb5.ReleaseGetDate, unsafe.Pointer(rel))
-		r.Country = mb5.String(mb5.ReleaseGetCountry, unsafe.Pointer(rel))
-		r.Barcode = mb5.String(mb5.ReleaseGetBarcode, unsafe.Pointer(rel))
-		r.Disambiguation = mb5.String(mb5.ReleaseGetDisambiguation, unsafe.Pointer(rel))
-
-		ac := mb5.ReleaseGetArtistcredit(rel)
-		r.Artist = c.fmtArtistCreditMB5(ac)
-
-		ml := mb5.ReleaseGetMediumlist(rel)
-		if ml != nil {
-			r.TrackCount = mb5.MediumListGetTrackcount(ml)
-			// Get Media format from the first medium
-			if mb5.MediumListSize(ml) > 0 {
-				med := mb5.MediumListItem(ml, 0)
-				r.Media = mb5.String(mb5.MediumGetFormat, unsafe.Pointer(med))
-			}
-		}
-
-		liList := mb5.ReleaseGetLabelinfolist(rel)
-		if liList != nil {
-			r.Label = c.fmtLabelsMB5(liList)
-			r.CatalogNumber = c.fmtCatalogNumbersMB5(liList)
-		}
-
+		r := c.parseReleaseMB5(rel)
 		results = append(results, r)
 	}
 
 	return results, nil
+}
+
+func (c *Curator) parseReleaseMB5(rel mb5.Release) MBRelease {
+	var r MBRelease
+	r.ID = mb5.String(mb5.ReleaseGetID, unsafe.Pointer(rel))
+	r.Title = mb5.String(mb5.ReleaseGetTitle, unsafe.Pointer(rel))
+	r.Date = mb5.String(mb5.ReleaseGetDate, unsafe.Pointer(rel))
+	r.Country = mb5.String(mb5.ReleaseGetCountry, unsafe.Pointer(rel))
+	r.Barcode = mb5.String(mb5.ReleaseGetBarcode, unsafe.Pointer(rel))
+	r.Disambiguation = mb5.String(mb5.ReleaseGetDisambiguation, unsafe.Pointer(rel))
+
+	ac := mb5.ReleaseGetArtistcredit(rel)
+	r.Artist = c.fmtArtistCreditMB5(ac)
+
+	ml := mb5.ReleaseGetMediumlist(rel)
+	if ml != nil {
+		r.TrackCount = mb5.MediumListGetTrackcount(ml)
+		if mb5.MediumListSize(ml) > 0 {
+			med := mb5.MediumListItem(ml, 0)
+			r.Media = mb5.String(mb5.MediumGetFormat, unsafe.Pointer(med))
+		}
+	}
+
+	liList := mb5.ReleaseGetLabelinfolist(rel)
+	if liList != nil {
+		r.Label = c.fmtLabelsMB5(liList)
+		r.CatalogNumber = c.fmtCatalogNumbersMB5(liList)
+	}
+	return r
+}
+
+func (c *Curator) SearchByISRCs(ctx context.Context, isrcs []string) ([]MBRelease, error) {
+	if c.mb5query == nil {
+		return nil, fmt.Errorf("mb5 query not initialized")
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	type releaseScore struct {
+		release MBRelease
+		score   int
+	}
+	releaseMap := make(map[string]*releaseScore)
+
+	for _, isrc := range isrcs {
+		isrc = strings.TrimSpace(isrc)
+		if isrc == "" {
+			continue
+		}
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		searchQuery := fmt.Sprintf("isrc:%s", isrc)
+		c.rl.Take()
+
+		var params [1]*byte
+		p1 := []byte("query")
+		params[0] = &p1[0]
+
+		var values [1]*byte
+		v1 := []byte(searchQuery)
+		values[0] = &v1[0]
+
+		metadata := mb5.QueryQuery(c.mb5query, "recording", "", "", 1, unsafe.Pointer(&params), unsafe.Pointer(&values))
+		if metadata == nil {
+			continue
+		}
+
+		if result := mb5.QueryGetLastresult(c.mb5query); result != 0 {
+			mb5.MetadataDelete(metadata)
+			continue
+		}
+
+		recList := mb5.MetadataGetRecordinglist(metadata)
+		if recList == nil {
+			mb5.MetadataDelete(metadata)
+			continue
+		}
+
+		recCount := mb5.RecordingListSize(recList)
+		for i := 0; i < recCount; i++ {
+			rec := mb5.RecordingListItem(recList, i)
+			relList := mb5.RecordingGetReleaselist(rec)
+			if relList == nil {
+				continue
+			}
+
+			relCount := mb5.ReleaseListSize(relList)
+			for j := 0; j < relCount; j++ {
+				rel := mb5.ReleaseListItem(relList, j)
+				parsed := c.parseReleaseMB5(rel)
+				if parsed.ID == "" {
+					continue
+				}
+
+				if rs, exists := releaseMap[parsed.ID]; exists {
+					rs.score++
+				} else {
+					releaseMap[parsed.ID] = &releaseScore{
+						release: parsed,
+						score:   1,
+					}
+				}
+			}
+		}
+		mb5.MetadataDelete(metadata)
+	}
+
+	if len(releaseMap) == 0 {
+		return nil, nil
+	}
+
+	results := make([]MBRelease, 0, len(releaseMap))
+	for _, rs := range releaseMap {
+		results = append(results, rs.release)
+	}
+
+	sort.Slice(results, func(i, j int) bool {
+		rsI := releaseMap[results[i].ID]
+		rsJ := releaseMap[results[j].ID]
+		if rsI.score != rsJ.score {
+			return rsI.score > rsJ.score
+		}
+		diffI := abs(results[i].TrackCount - len(isrcs))
+		diffJ := abs(results[j].TrackCount - len(isrcs))
+		return diffI < diffJ
+	})
+
+	return results, nil
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 func (c *Curator) SelectRelease(ctx context.Context, results []MBRelease) (*MBRelease, error) {

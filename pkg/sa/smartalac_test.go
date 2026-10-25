@@ -101,3 +101,31 @@ func TestRename(t *testing.T) {
 		t.Errorf("source file still exists at %s", dummyFile)
 	}
 }
+
+func TestRenameInvalidTrackNumber(t *testing.T) {
+	tempDir := t.TempDir()
+	sourceDir := filepath.Join(tempDir, "source")
+	finalDir := filepath.Join(tempDir, "final")
+	os.Mkdir(sourceDir, 0755)
+	os.Mkdir(finalDir, 0755)
+
+	dummyFile := filepath.Join(sourceDir, "test.m4a")
+	os.WriteFile(dummyFile, []byte("dummy"), 0644)
+
+	curator := NewCurator(Config{
+		FinalDir: finalDir,
+	})
+
+	tags := &mp4tag.MP4Tags{
+		AlbumArtist: "Test Artist",
+		AlbumSort:   "Test Album",
+		Title:       "Test Track",
+		DiscNumber:  1,
+		TrackNumber: 0, // Invalid track number
+	}
+
+	err := curator.rename(dummyFile, tags)
+	if err == nil {
+		t.Errorf("expected error when TrackNumber is 0, got nil")
+	}
+}
