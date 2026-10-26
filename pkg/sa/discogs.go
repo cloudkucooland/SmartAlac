@@ -3,6 +3,7 @@ package sa
 import (
 	"context"
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 
@@ -141,4 +142,113 @@ func (c *Curator) SearchDiscogs(ctx context.Context, artist, album, barcode stri
 	}
 
 	return res.Results, nil
+}
+
+func (c *Curator) SearchDiscogsByTrackDurations(ctx context.Context, trackDurations []int) ([]discogs.Result, error) {
+	if c.dgClient == nil {
+		return nil, fmt.Errorf("discogs client not initialized")
+	}
+
+	trackCount := len(trackDurations)
+	if trackCount == 0 {
+		return nil, fmt.Errorf("no track durations provided")
+	}
+
+	client := c.dgClient.(discogs.Discogs)
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	// Step 1: Search Discogs by Format (CD) and total Track Count
+	c.dgRL.Take()
+	request := discogs.SearchRequest{
+		Format: "CD",
+		Type:   "release",
+		// Discogs Search API supports track count constraint filtering
+		Track: strconv.Itoa(trackCount),
+	}
+
+	res, err := client.Search(request)
+	if err != nil {
+		return nil, fmt.Errorf("discogs track count search failed: %w", err)
+	}
+
+	if len(res.Results) == 0 {
+		return nil, nil
+	}
+
+	// Step 2: Fetch individual releases to inspect tracklist durations
+	var matchedResults []discogs.Result
+	for _, result := range res.Results {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		c.dgRL.Take()
+		release, err := client.Release(result.ID)
+		if err != nil {
+			continue // Skip unresolvable release entries
+		}
+
+		// Filter against the target duration profile
+		if matchDiscogsTracklist(release.Tracklist, trackDurations) {
+			matchedResults = append(matchedResults, result)
+		}
+	}
+
+	return matchedResults, nil
+}
+
+// matchDiscogsTracklist parses MM:SS / HH:MM:SS duration strings in Discogs
+// tracklists and checks if they match the expected track durations (+/- 3s tolerance per track).
+func matchDiscogsTracklist(tracklist []discogs.Track, targetDurations []int) bool {
+	// Filter out non-audio tracks (headers, indexes)
+	var audioTracks []discogs.Track
+	for _, t := range tracklist {
+		if t.Duration != "" || t.Position != "" {
+			audioTracks = append(audioTracks, t)
+		}
+	}
+
+	if len(audioTracks) != len(targetDurations) {
+		return false
+	}
+
+	matchedCount := 0
+	for i, t := range audioTracks {
+		discogsSecs := parseDiscogsDuration(t.Duration)
+		if discogsSecs == 0 {
+			// Track lacks duration metadata on Discogs side; give benefit of the doubt
+			continue
+		}
+
+		// Allow a 3-second tolerance per track to handle frame rounding/pregap differences
+		if math.Abs(float64(discogsSecs-targetDurations[i])) <= 3.0 {
+			matchedCount++
+		}
+	}
+
+	// Require at least 80% of tracks with valid durations to match
+	return float64(matchedCount)/float64(len(targetDurations)) >= 0.8
+}
+
+// parseDiscogsDuration converts "MM:SS" or "HH:MM:SS" strings into total seconds.
+func parseDiscogsDuration(dur string) int {
+	parts := strings.Split(dur, ":")
+	if len(parts) == 2 {
+		min, _ := strconv.Atoi(parts[0])
+		sec, _ := strconv.Atoi(parts[1])
+		return min*60 + sec
+	} else if len(parts) == 3 {
+		hr, _ := strconv.Atoi(parts[0])
+		min, _ := strconv.Atoi(parts[1])
+		sec, _ := strconv.Atoi(parts[2])
+		return hr*3600 + min*60 + sec
+	}
+	return 0
 }

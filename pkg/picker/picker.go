@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -37,24 +38,63 @@ const (
 )
 
 type model struct {
-	state       state
-	mode        mode
-	curator     *sa.Curator
-	targetDir   string
-	toc         string
-	discID      string
-	isrcs       []string
-	artistInput textinput.Model
-	albumInput  textinput.Model
-	mcnInput    textinput.Model
-	focusIndex  int
-	results     []sa.MBRelease
-	dgResults   []discogs.Result
-	list        list.Model
-	error       error
-	status      string
-	width       int
-	height      int
+	state          state
+	mode           mode
+	curator        *sa.Curator
+	targetDir      string
+	toc            string
+	discID         string
+	isrcs          []string
+	trackDurations []int // Durations in seconds parsed from TOC
+	artistInput    textinput.Model
+	albumInput     textinput.Model
+	mcnInput       textinput.Model
+	focusIndex     int
+	results        []sa.MBRelease
+	dgResults      []discogs.Result
+	list           list.Model
+	error          error
+	status         string
+	width          int
+	height         int
+}
+
+// parseTOCDurations converts a libcdio TOC string into track durations in seconds.
+func parseTOCDurations(tocStr string) []int {
+	parts := strings.Fields(tocStr)
+	if len(parts) < 4 {
+		return nil
+	}
+
+	leadout, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return nil
+	}
+
+	var offsets []int
+	for _, p := range parts[3:] {
+		if val, err := strconv.Atoi(p); err == nil {
+			offsets = append(offsets, val)
+		}
+	}
+
+	if len(offsets) == 0 {
+		return nil
+	}
+
+	durations := make([]int, len(offsets))
+	for i := 0; i < len(offsets); i++ {
+		var nextOffset int
+		if i+1 < len(offsets) {
+			nextOffset = offsets[i+1]
+		} else {
+			nextOffset = leadout
+		}
+		frames := nextOffset - offsets[i]
+		// 75 CDDA frames per second
+		durations[i] = int(math.Round(float64(frames) / 75.0))
+	}
+	return durations
 }
 
 func NewModel(c *sa.Curator, dir string) model {
@@ -71,6 +111,8 @@ func NewModel(c *sa.Curator, dir string) model {
 	var toc string
 	var discID string
 	var isrcs []string
+	var durations []int
+
 	ripdatapath := filepath.Join(dir, "ripdata.json")
 	if data, err := os.ReadFile(ripdatapath); err == nil {
 		var rd struct {
@@ -88,20 +130,24 @@ func NewModel(c *sa.Curator, dir string) model {
 					isrcs = append(isrcs, t.ISRC)
 				}
 			}
+			if toc != "" {
+				durations = parseTOCDurations(toc)
+			}
 		}
 	}
 
 	m := model{
-		state:       stateInput,
-		curator:     c,
-		targetDir:   dir,
-		toc:         toc,
-		discID:      discID,
-		isrcs:       isrcs,
-		artistInput: art,
-		albumInput:  alb,
-		mcnInput:    mcn,
-		focusIndex:  0,
+		state:          stateInput,
+		curator:        c,
+		targetDir:      dir,
+		toc:            toc,
+		discID:         discID,
+		isrcs:          isrcs,
+		trackDurations: durations,
+		artistInput:    art,
+		albumInput:     alb,
+		mcnInput:       mcn,
+		focusIndex:     0,
 	}
 
 	files, _ := os.ReadDir(dir)
@@ -125,6 +171,7 @@ func NewModel(c *sa.Curator, dir string) model {
 				if m.toc == "" {
 					if vals, ok := tags.Custom["TOC"]; ok && len(vals) > 0 {
 						m.toc = vals[0]
+						m.trackDurations = parseTOCDurations(m.toc)
 					}
 				}
 				if m.discID == "" {
@@ -164,6 +211,7 @@ func NewModel(c *sa.Curator, dir string) model {
 
 	return m
 }
+
 func (m model) Init() tea.Cmd {
 	return textinput.Blink
 }
@@ -239,7 +287,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 						return searchResultMsg(res)
 					} else {
+						// Primary search by text / MCN fields
 						res, err := m.curator.SearchDiscogs(context.Background(), m.artistInput.Value(), m.albumInput.Value(), m.mcnInput.Value())
+						if (err != nil || len(res) == 0) && len(m.trackDurations) > 0 {
+							// Fallback: search Discogs by Track Count and TOC duration array
+							res, err = m.curator.SearchDiscogsByTrackDurations(context.Background(), m.trackDurations)
+						}
 						if err != nil {
 							return errorMsg(err)
 						}
@@ -257,6 +310,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.mcnInput, cmd = m.mcnInput.Update(msg)
 			}
 			return m, cmd
+
 		case stateResults:
 			if msg.String() == "enter" {
 				selected := m.list.SelectedItem().(item).release
@@ -280,10 +334,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.state = stateTagging
 				m.status = fmt.Sprintf("Tagging files in %s...", m.targetDir)
 				return m, func() tea.Msg {
-					// TagDirectory will now handle Discogs fallback internally if MBID is empty
-					// but since we selected a specific Discogs ID, we should pass it.
-					// We'll need a way to tell TagDirectory to use a specific Discogs ID.
-					// For now, let's update all files in dir with this Discogs ID.
 					files, err := os.ReadDir(m.targetDir)
 					if err != nil {
 						return errorMsg(err)
@@ -370,7 +420,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		if m.state == stateResults {
+		if m.state == stateResults || m.state == stateDiscogsResults {
 			m.list.SetSize(msg.Width, msg.Height-4)
 		}
 	}
@@ -386,7 +436,12 @@ func (m model) View() string {
 		modeStr = "Discogs"
 	}
 
-	header := lipgloss.NewStyle().Foreground(lipgloss.Color("#FAFAFA")).Background(lipgloss.Color("#7D56F4")).Padding(0, 1).Bold(true).Render(fmt.Sprintf("PICKER: Album Tagger (%s)", modeStr))
+	header := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("#FAFAFA")).
+		Background(lipgloss.Color("#7D56F4")).
+		Padding(0, 1).
+		Bold(true).
+		Render(fmt.Sprintf("PICKER: Album Tagger (%s)", modeStr))
 
 	switch m.state {
 	case stateInput:
@@ -399,7 +454,9 @@ func (m model) View() string {
 		)
 
 		if m.error != nil {
-			s += lipgloss.NewStyle().Foreground(lipgloss.Color("#FF0000")).Render(fmt.Sprintf("\nError: %v\n", m.error))
+			s += lipgloss.NewStyle().
+				Foreground(lipgloss.Color("#FF0000")).
+				Render(fmt.Sprintf("\nError: %v\n", m.error))
 		}
 
 	case stateSearch:
@@ -412,7 +469,7 @@ func (m model) View() string {
 		s = fmt.Sprintf("\n  %s\n", m.status)
 
 	case stateDone:
-		s = "\n  Done! All files tagged and moved.\n"
+		s = "\n  Done! All files tagged.\n"
 	}
 
 	return lipgloss.JoinVertical(lipgloss.Left, header, "\n", s)
