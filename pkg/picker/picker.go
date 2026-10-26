@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -59,44 +58,6 @@ type model struct {
 	height         int
 }
 
-// parseTOCDurations converts a libcdio TOC string into track durations in seconds.
-func parseTOCDurations(tocStr string) []int {
-	parts := strings.Fields(tocStr)
-	if len(parts) < 4 {
-		return nil
-	}
-
-	leadout, err := strconv.Atoi(parts[2])
-	if err != nil {
-		return nil
-	}
-
-	var offsets []int
-	for _, p := range parts[3:] {
-		if val, err := strconv.Atoi(p); err == nil {
-			offsets = append(offsets, val)
-		}
-	}
-
-	if len(offsets) == 0 {
-		return nil
-	}
-
-	durations := make([]int, len(offsets))
-	for i := 0; i < len(offsets); i++ {
-		var nextOffset int
-		if i+1 < len(offsets) {
-			nextOffset = offsets[i+1]
-		} else {
-			nextOffset = leadout
-		}
-		frames := nextOffset - offsets[i]
-		// 75 CDDA frames per second
-		durations[i] = int(math.Round(float64(frames) / 75.0))
-	}
-	return durations
-}
-
 func NewModel(c *sa.Curator, dir string) model {
 	art := textinput.New()
 	art.Placeholder = "Album Artist"
@@ -131,7 +92,7 @@ func NewModel(c *sa.Curator, dir string) model {
 				}
 			}
 			if toc != "" {
-				durations = parseTOCDurations(toc)
+				durations = sa.ParseTOCDurations(toc)
 			}
 		}
 	}
@@ -171,7 +132,7 @@ func NewModel(c *sa.Curator, dir string) model {
 				if m.toc == "" {
 					if vals, ok := tags.Custom["TOC"]; ok && len(vals) > 0 {
 						m.toc = vals[0]
-						m.trackDurations = parseTOCDurations(m.toc)
+						m.trackDurations = sa.ParseTOCDurations(m.toc)
 					}
 				}
 				if m.discID == "" {
@@ -281,6 +242,10 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 						if (res == nil || len(res) == 0) && m.toc == "" && m.discID == "" && len(m.isrcs) == 0 {
 							res, err = m.curator.SearchMB(context.Background(), m.artistInput.Value(), m.albumInput.Value())
+						}
+						if (res == nil || len(res) == 0) && len(m.trackDurations) > 0 {
+							// Duration array fallback on MusicBrainz
+							res, err = m.curator.SearchMBByDurations(context.Background(), m.trackDurations)
 						}
 						if err != nil {
 							return errorMsg(err)

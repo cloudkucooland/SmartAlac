@@ -125,3 +125,16 @@ func TestAbs(t *testing.T) {
 		t.Errorf("abs(0) == %d, want 0", abs(0))
 	}
 }
+
+func TestSearchMBByDurationsNilQuery(t *testing.T) {
+	c := &Curator{}
+	_, err := c.SearchMBByDurations(context.Background(), []int{})
+	if err == nil {
+		t.Error("Expected error when durations is empty, got nil")
+	}
+
+	_, err = c.SearchMBByDurations(context.Background(), []int{180, 200})
+	if err == nil {
+		t.Error("Expected error when mb5query is nil, got nil")
+	}
+}

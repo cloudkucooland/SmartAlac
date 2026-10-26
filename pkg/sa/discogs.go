@@ -162,13 +162,12 @@ func (c *Curator) SearchDiscogsByTrackDurations(ctx context.Context, trackDurati
 	default:
 	}
 
-	// Step 1: Search Discogs by Format (CD) and total Track Count
+	// Step 1: Search Discogs by Format (CD) and total Track Count query
 	c.dgRL.Take()
 	request := discogs.SearchRequest{
 		Format: "CD",
 		Type:   "release",
-		// Discogs Search API supports track count constraint filtering
-		Track: strconv.Itoa(trackCount),
+		Q:      fmt.Sprintf("%d tracks", trackCount),
 	}
 
 	res, err := client.Search(request)

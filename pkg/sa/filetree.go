@@ -267,6 +267,26 @@ func (c *Curator) wdf(p string, d fs.DirEntry, err error) error {
 		finalTags, changed, err = c.UpdateFromDiscogs(c.ctx, inTags, didInt)
 	}
 
+	if finalTags == nil && toc != "" {
+		trackDurations := ParseTOCDurations(toc)
+		if len(trackDurations) > 0 {
+			if !c.Config.SkipMB {
+				mbResults, err := c.SearchMBByDurations(c.ctx, trackDurations)
+				if err == nil && len(mbResults) > 0 {
+					tid = mbResults[0].ID
+					finalTags, changed, err = c.UpdateFromMB(c.ctx, inTags, tid)
+				}
+			}
+			if finalTags == nil && c.dgClient != nil {
+				dgResults, err := c.SearchDiscogsByTrackDurations(c.ctx, trackDurations)
+				if err == nil && len(dgResults) > 0 {
+					didInt := dgResults[0].ID
+					finalTags, changed, err = c.UpdateFromDiscogs(c.ctx, inTags, didInt)
+				}
+			}
+		}
+	}
+
 	if err != nil {
 		log.Printf("metadata update failed for %s: %v", p, err)
 		return nil

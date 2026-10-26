@@ -5,12 +5,51 @@ import (
 	"context"
 	"fmt"
 	"github.com/cloudkucooland/SmartAlac/pkg/mb5"
+	"math"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"unsafe"
 )
+
+// ParseTOCDurations converts a libcdio TOC string into track durations in seconds.
+func ParseTOCDurations(tocStr string) []int {
+	parts := strings.Fields(tocStr)
+	if len(parts) < 4 {
+		return nil
+	}
+
+	leadout, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return nil
+	}
+
+	var offsets []int
+	for _, p := range parts[3:] {
+		if val, err := strconv.Atoi(p); err == nil {
+			offsets = append(offsets, val)
+		}
+	}
+
+	if len(offsets) == 0 {
+		return nil
+	}
+
+	durations := make([]int, len(offsets))
+	for i := 0; i < len(offsets); i++ {
+		var nextOffset int
+		if i+1 < len(offsets) {
+			nextOffset = offsets[i+1]
+		} else {
+			nextOffset = leadout
+		}
+		frames := nextOffset - offsets[i]
+		// 75 CDDA frames per second
+		durations[i] = int(math.Round(float64(frames) / 75.0))
+	}
+	return durations
+}
 
 type MBRelease struct {
 	ID             string
@@ -271,4 +310,80 @@ func (c *Curator) SelectRelease(ctx context.Context, results []MBRelease) (*MBRe
 
 		fmt.Println("Invalid selection, please try again.")
 	}
+}
+
+func (c *Curator) SearchMBQuery(ctx context.Context, searchQuery string) ([]MBRelease, error) {
+	if c.mb5query == nil {
+		return nil, fmt.Errorf("mb5 query not initialized")
+	}
+
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+	}
+
+	c.rl.Take()
+
+	var params [1]*byte
+	p1 := []byte("query")
+	params[0] = &p1[0]
+
+	var values [1]*byte
+	v1 := []byte(searchQuery)
+	values[0] = &v1[0]
+
+	metadata := mb5.QueryQuery(c.mb5query, "release", "", "", 1, unsafe.Pointer(&params), unsafe.Pointer(&values))
+	if metadata == nil {
+		return nil, fmt.Errorf("search failed (metadata nil)")
+	}
+	defer mb5.MetadataDelete(metadata)
+
+	if result := mb5.QueryGetLastresult(c.mb5query); result != 0 {
+		var errbuf [256]byte
+		mb5.QueryGetLasterrormessage(c.mb5query, &errbuf[0], 256)
+		return nil, fmt.Errorf("search error: %s", strings.Trim(string(errbuf[:]), "\x00"))
+	}
+
+	releaseList := mb5.MetadataGetReleaselist(metadata)
+	if releaseList == nil {
+		return nil, nil
+	}
+
+	count := mb5.ReleaseListSize(releaseList)
+	results := make([]MBRelease, 0, count)
+
+	for i := 0; i < count; i++ {
+		rel := mb5.ReleaseListItem(releaseList, i)
+		r := c.parseReleaseMB5(rel)
+		results = append(results, r)
+	}
+
+	return results, nil
+}
+
+// SearchMBByDurations constructs a MusicBrainz Lucene query based on track count and durations.
+func (c *Curator) SearchMBByDurations(ctx context.Context, durations []int) ([]MBRelease, error) {
+	if len(durations) == 0 {
+		return nil, fmt.Errorf("no durations provided")
+	}
+
+	// Build Lucene query: tracks:N AND dur:MS1 AND dur:MS2...
+	// Allow a +/- 2000ms (2s) window per track
+	var durQueries []string
+	// Use first 5 tracks to avoid query-length limits on large track counts
+	maxCheck := 5
+	if len(durations) < maxCheck {
+		maxCheck = len(durations)
+	}
+
+	for i := 0; i < maxCheck; i++ {
+		ms := durations[i] * 1000
+		durQueries = append(durQueries, fmt.Sprintf("dur:[%d TO %d]", ms-2000, ms+2000))
+	}
+
+	query := fmt.Sprintf("tracks:%d AND %s", len(durations), strings.Join(durQueries, " AND "))
+
+	// Query MusicBrainz Release endpoint with structured query
+	return c.SearchMBQuery(ctx, query)
 }
